@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ca">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="description" content="Activitat gamificada de logística sanitària: terratrèmol no evacuable, hospital de campanya i triatge START. CFGM Emergències Sanitàries.">
+<script>
+/* Si el navegador o GitHub Pages serveixen una versió antiga, es carrega la nova */
+window.APP_VERSION = "5";
+(function(){ try { fetch("version.json?t=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.json(); }).then(function(j){ if (j && j.v && j.v !== window.APP_VERSION && location.search.indexOf("v=" + j.v) < 0) location.replace(location.pathname + "?v=" + j.v); }).catch(function(){}); } catch(e) {} })();
+</script>
+<title>Hospital de campanya · Vall d'Arnes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Lexend:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&family=Saira+Stencil+One&display=swap">
+<link rel="stylesheet" href="css/app.css?v=5">
+</head>
+<body>
+
+<section class="login" id="login" aria-labelledby="lgTitle">
+  <form class="lgcard" id="lgForm" novalidate>
+    <div class="eyebrow">0053 Logística sanitària en emergències · TES</div>
+    <h1 class="ptitle" id="lgTitle">Hospital de campanya</h1>
+    <p class="lead">Vall d'Arnes · activitat individual</p>
+    <label class="fl" for="lgEmail">Correu de l'institut</label>
+    <input type="email" id="lgEmail" autocomplete="username" inputmode="email" placeholder="nom.cognom@isvh.cat" required>
+    <label class="fl" for="lgPass">Contrasenya</label>
+    <input type="password" id="lgPass" autocomplete="current-password" required>
+    <p class="lgerr" id="lgErr" role="alert"></p>
+    <button type="submit" class="btn">Entra</button>
+    <p class="small muted" style="margin-top:14px">Només per a l'alumnat amb correu @isvh.cat. La contrasenya te la dona el professorat.</p>
+  </form>
+</section>
+
+<div id="app" hidden>
+  <header class="bar" style="position:sticky">
+    <div class="brand"><b>HOSPITAL DE CAMPANYA</b><span>Vall d'Arnes · Logística sanitària</span></div>
+    <ol class="steps" id="steps" aria-label="Fases de l'activitat"></ol>
+    <div class="score" id="score" aria-live="polite">0 <small>/ 1000</small></div>
+    <div class="tools">
+      <button type="button" class="btn ghost small" id="a11yBtn" aria-expanded="false" aria-controls="a11y">Aa · Accessibilitat</button>
+      <span class="who" id="who"></span>
+      <button type="button" class="btn ghost small" id="logout">Surt</button>
+    </div>
+    <div class="a11y" id="a11y" hidden role="dialog" aria-label="Opcions d'accessibilitat">
+      <h2>Opcions d'accessibilitat</h2>
+      <fieldset><legend>Mida del text</legend><div class="seg">
+        <label><input type="radio" name="size" value="m"> Normal</label>
+        <label><input type="radio" name="size" value="l"> Gran</label>
+        <label><input type="radio" name="size" value="xl"> Molt gran</label></div></fieldset>
+      <fieldset><legend>Tipus de lletra</legend><div class="seg">
+        <label><input type="radio" name="font" value="atkinson"> Molt llegible</label>
+        <label><input type="radio" name="font" value="lexend"> Lectura fàcil (més espai)</label></div></fieldset>
+      <fieldset><legend>Contrast</legend><div class="seg">
+        <label><input type="radio" name="contrast" value="normal"> Normal</label>
+        <label><input type="radio" name="contrast" value="high"> Alt (blanc i negre)</label></div></fieldset>
+      <fieldset><legend>Moviment del mapa (pluja, llamps, animacions)</legend><div class="seg">
+        <label><input type="radio" name="motion" value="on"> Sí</label>
+        <label><input type="radio" name="motion" value="off"> No</label></div></fieldset>
+      <fieldset><legend>Noms dels llocs al mapa</legend><div class="seg">
+        <label><input type="radio" name="labels" value="on"> Mostra'ls</label>
+        <label><input type="radio" name="labels" value="off"> Amaga'ls</label></div></fieldset>
+      <button type="button" class="btn small" id="a11yClose">Fet</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="stage" id="stage" aria-label="Mapa 3D de la Vall d'Arnes i de l'hospital de campanya">
+      <div class="hud">
+        <div class="chip" id="clock">03:12 · terratrèmol</div>
+        <div class="viewsw" role="group" aria-label="Què vols veure">
+          <button type="button" id="vVall" aria-pressed="true">Mapa de la vall</button>
+          <button type="button" id="vHosp" aria-pressed="false">Hospital</button>
+        </div>
+      </div>
+      <div class="beds" id="beds" hidden aria-live="polite"></div>
+      <div class="lock" id="lock" hidden>
+        <div class="lockcard" role="dialog" aria-labelledby="lockTitle">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          <h2 id="lockTitle">Hospital bloquejat</h2>
+          <p>L'hospital de campanya encara no està muntat. S'obrirà quan arribis a la <b>fase 3: Activa</b>.</p>
+          <button type="button" class="btn" id="lockBack">← Torna al mapa de la vall</button>
+        </div>
+      </div>
+      <div class="ctrls">
+        <button type="button" id="zIn" aria-label="Apropa">+</button>
+        <button type="button" id="zOut" aria-label="Allunya">−</button>
+        <button type="button" id="zHome" aria-label="Torna a la vista inicial">⌂</button>
+      </div>
+      <button type="button" class="btn small skip" id="skip" hidden>Salta l'animació</button>
+      <div class="hint3d" id="hint3d">Arrossega per girar el mapa · roda o pinça per apropar · toca els cercles taronja</div>
+    </section>
+    <section class="panel" id="panel" aria-live="polite"></section>
+  </main>
+</div>
+
+<dialog class="photo" id="dlg" aria-label="Informació del lloc"></dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="js/data.js?v=5"></script>
+<script src="js/world.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
+<script src="js/login.js?v=5"></script>
+</body>
+</html>
