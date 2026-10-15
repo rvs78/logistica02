@@ -4,17 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta name="description" content="Activitat gamificada de logística sanitària: terratrèmol no evacuable, hospital de campanya i triatge START. CFGM Emergències Sanitàries.">
+<meta name="description" content="Activitat gamificada de logística sanitària: terratrèmol no evacuable, hospital de campanya, triatge START, reconstrucció i interdesastre. CFGM Emergències Sanitàries.">
 <script>
 /* Si el navegador o GitHub Pages serveixen una versió antiga, es carrega la nova */
-window.APP_VERSION = "5";
+window.APP_VERSION = "6";
 (function(){ try { fetch("version.json?t=" + Date.now(), {cache:"no-store"}).then(function(r){ return r.json(); }).then(function(j){ if (j && j.v && j.v !== window.APP_VERSION && location.search.indexOf("v=" + j.v) < 0) location.replace(location.pathname + "?v=" + j.v); }).catch(function(){}); } catch(e) {} })();
 </script>
 <title>Hospital de campanya · Vall d'Arnes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=Lexend:wght@400;600;700&family=IBM+Plex+Mono:wght@500;600&family=Saira+Stencil+One&display=swap">
-<link rel="stylesheet" href="css/app.css?v=5">
+<link rel="stylesheet" href="css/app.css?v=6">
 </head>
 <body>
 
@@ -37,7 +37,7 @@ window.APP_VERSION = "5";
   <header class="bar" style="position:sticky">
     <div class="brand"><b>HOSPITAL DE CAMPANYA</b><span>Vall d'Arnes · Logística sanitària</span></div>
     <ol class="steps" id="steps" aria-label="Fases de l'activitat"></ol>
-    <div class="score" id="score" aria-live="polite">0 <small>/ 1000</small></div>
+    <div class="score" id="score" aria-live="polite">0 <small>/ 1500</small></div>
     <div class="tools">
       <button type="button" class="btn ghost small" id="a11yBtn" aria-expanded="false" aria-controls="a11y">Aa · Accessibilitat</button>
       <span class="who" id="who"></span>
@@ -66,12 +66,13 @@ window.APP_VERSION = "5";
   </header>
 
   <main class="layout">
-    <section class="stage" id="stage" aria-label="Mapa 3D de la Vall d'Arnes i de l'hospital de campanya">
+    <section class="stage" id="stage" aria-label="Mapa 3D de la Vall d'Arnes, hospital de campanya i mapa de riscos">
       <div class="hud">
         <div class="chip" id="clock">03:12 · terratrèmol</div>
         <div class="viewsw" role="group" aria-label="Què vols veure">
           <button type="button" id="vVall" aria-pressed="true">Mapa de la vall</button>
           <button type="button" id="vHosp" aria-pressed="false">Hospital</button>
+          <button type="button" id="vPla" aria-pressed="false" hidden>Pla de riscos</button>
         </div>
       </div>
       <div class="beds" id="beds" hidden aria-live="polite"></div>
@@ -99,9 +100,10 @@ window.APP_VERSION = "5";
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-<script src="js/data.js?v=5"></script>
-<script src="js/world.js?v=5"></script>
-<script src="js/app.js?v=5"></script>
-<script src="js/login.js?v=5"></script>
+<script src="js/data.js?v=6"></script>
+<script src="js/world.js?v=6"></script>
+<script src="js/plan.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
+<script src="js/login.js?v=6"></script>
 </body>
 </html>

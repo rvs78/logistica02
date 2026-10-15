@@ -219,3 +219,31 @@ dialog.photo::backdrop{background:rgba(0,0,0,.65)}
   .steps li{font-size:.68rem}
 }
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+
+/* ---------- Fases 5 i 6: reconstrucció i interdesastre */
+.legend{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 2px}
+.legend span{background:var(--soft);border:var(--bw) solid var(--line);border-radius:999px;padding:2px 10px;font-size:.82rem}
+.q.flash{animation:qflash 1.4s ease-out}
+@keyframes qflash{0%{box-shadow:0 0 0 4px var(--focus)}100%{box-shadow:0 0 0 4px transparent}}
+.checks button b{font-family:var(--f-mono);margin-left:6px}
+.checks button.miss{border-style:dashed;border-color:var(--ok)}
+.checks button[aria-pressed="true"] .n{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+
+/* Mapa de riscos (SVG animat) */
+.plan{position:absolute;inset:0;z-index:3;background:#cfc6a6;padding-top:56px}
+.plan svg{display:block;width:100%;height:100%;font-family:var(--f-body)}
+.pl-lbl{font-size:12px;font-weight:700;fill:#1d2a24;paint-order:stroke;stroke:#f4f1e4;stroke-width:3px}
+.pl-tag{font-size:13px;font-weight:700;fill:#1d2a24;paint-order:stroke;stroke:#fff;stroke-width:4px}
+.pl-house{fill:#d8cdb6} .pl-pub{fill:#f1e3b4}
+.pl-l{display:none;transform-box:fill-box;transform-origin:center}
+.pl-l.on{display:inline;animation:plpop .9s cubic-bezier(.2,1.5,.4,1) both}
+@keyframes plpop{from{opacity:0;transform:scale(.3)}to{opacity:1;transform:none}}
+.pl-ring{transform-box:fill-box;transform-origin:center;animation:plring 2.6s ease-out infinite}
+.pl-ring.d2{animation-delay:.85s} .pl-ring.d3{animation-delay:1.7s}
+@keyframes plring{from{opacity:.9;transform:scale(.25)}to{opacity:0;transform:scale(1.6)}}
+.pl-flow{stroke-dasharray:6 16;animation:plflow 1.8s linear infinite}
+.pl-flow2{animation:plflow 1.4s linear infinite}
+@keyframes plflow{to{stroke-dashoffset:-44}}
+.pl-flame{transform-box:fill-box;transform-origin:bottom;animation:plflick .7s ease-in-out infinite alternate}
+@keyframes plflick{from{transform:scaleY(.86)}to{transform:scaleY(1.08)}}
+.plan.still *{animation:none!important}

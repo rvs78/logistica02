@@ -2,7 +2,7 @@
 "use strict";
 function createWorld(stage, cb){
   const api = {ok:false, setView(){}, getView(){return "vall";}, setLocked(){}, focusSpot(){}, markFound(){}, showSpots(){}, showSites(){}, focusSite(){},
-    playActivation(d){d&&d();}, finishActivation(){}, admit(){}, resetAll(){}, setMotion(){}, setLabels(){}, zoom(){}, resetCam(){}, free(){return Object.assign({},CAPACITY);}, skipVisible(){return false;}};
+    playActivation(d){d&&d();}, finishActivation(){}, admit(){}, resetAll(){}, setEra(){}, build(){}, markWork(){}, showWorks(){}, focusWork(){}, overview(){}, setPaused(){}, setMotion(){}, setLabels(){}, zoom(){}, resetCam(){}, free(){return Object.assign({},CAPACITY);}, skipVisible(){return false;}};
   if (!window.THREE || !THREE.OrbitControls){ stage.insertAdjacentHTML("beforeend",'<div class="nogl"><p>No s\'ha pogut carregar l\'escena 3D. Pots fer tota l\'activitat amb els botons del panell.</p></div>'); return api; }
   let renderer;
   try { renderer = new THREE.WebGLRenderer({antialias:true, powerPreference:"high-performance"}); }
@@ -67,8 +67,9 @@ function createWorld(stage, cb){
   const skyTex = tex(8, 512, (g,w,h) => { const gr = g.createLinearGradient(0,0,0,h); gr.addColorStop(0,"#26364f"); gr.addColorStop(.38,"#5d6f88"); gr.addColorStop(.5,"#9aa4ab"); gr.addColorStop(.56,"#d2a07c"); gr.addColorStop(.62,"#7d8a96"); gr.addColorStop(1,"#55606a"); g.fillStyle = gr; g.fillRect(0,0,w,h); });
   const sky = new THREE.Mesh(new THREE.SphereGeometry(400, 32, 16), new THREE.MeshBasicMaterial({map:skyTex, side:THREE.BackSide, fog:false}));
   scene.add(sky);
+  const skyDay = tex(8, 512, (g,w,h) => { const gr = g.createLinearGradient(0,0,0,h); gr.addColorStop(0,"#3f7fc4"); gr.addColorStop(.42,"#8dbbe3"); gr.addColorStop(.55,"#dcebf3"); gr.addColorStop(.62,"#b9c7cf"); gr.addColorStop(1,"#7d8a72"); g.fillStyle = gr; g.fillRect(0,0,w,h); });
   // llums (alba)
-  scene.add(new THREE.HemisphereLight(0xc4d3e6, 0x3b4232, 0.72));
+  const hemi = new THREE.HemisphereLight(0xc4d3e6, 0x3b4232, 0.72); scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xffd7ad, 1.15); sun.position.set(48, 34, 22);
   sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
   Object.assign(sun.shadow.camera, {left:-46, right:46, top:46, bottom:-46, near:1, far:160}); sun.shadow.bias = -0.0006;
@@ -252,9 +253,10 @@ function createWorld(stage, cb){
   // escola (part ensorrada)
   building(-7.2, -9.8, 5, 3, 2, {wall:"#e8d9b0", shut:"#3f5a6e", sign:"ESCOLA ARNES", roof:"tile"});
   const wingMat = std(0xffffff, {map:facade(3, 2.35, {floors:2, wall:"#e8d9b0", shut:"#3f5a6e"})});
-  const wing = addBox(3, 2.35, 2.4, wingMat, -3.9, .55, -8.8); wing.rotation.z = .42;
-  const slab = addBox(3.4, .2, 2.6, topMat, -3.6, 1.2, -8.8); slab.rotation.set(.12, 0, -.55);
-  for (let i=0;i<16;i++){ const r = addBox(.3+rnd()*.7, .2+rnd()*.4, .3+rnd()*.7, std(0x9c8c6c), -3.2+rnd()*2.4, .2, -10.2+rnd()*2.8); r.rotation.set(rnd()*3, rnd()*3, rnd()*3); }
+  const schoolRuin = new THREE.Group(); scene.add(schoolRuin);
+  const wing = addBox(3, 2.35, 2.4, wingMat, -3.9, .55, -8.8, 0, schoolRuin); wing.rotation.z = .42;
+  const slab = addBox(3.4, .2, 2.6, topMat, -3.6, 1.2, -8.8, 0, schoolRuin); slab.rotation.set(.12, 0, -.55);
+  for (let i=0;i<16;i++){ const r = addBox(.3+rnd()*.7, .2+rnd()*.4, .3+rnd()*.7, std(0x9c8c6c), -3.2+rnd()*2.4, .2, -10.2+rnd()*2.8, 0, schoolRuin); r.rotation.set(rnd()*3, rnd()*3, rnd()*3); }
   // residència amb esquerdes
   const resi = building(1.3, -15.2, 5.6, 2.6, 3, {wall:"#e6e2d6", shut:"#7a8a92", sign:"RESIDÈNCIA", roof:"slate"});
   const crackTex = tex(128, 256, (g,w,h) => { g.clearRect(0,0,w,h); g.strokeStyle = "#151515"; g.lineWidth = 5; g.beginPath(); let x = w*.5; g.moveTo(x, 0); for (let y=0;y<h;y+=18){ x += (rnd()-.5)*40; g.lineTo(x, y); } g.stroke(); g.lineWidth = 2; g.beginPath(); g.moveTo(w*.5, h*.4); g.lineTo(w*.9, h*.55); g.stroke(); });
@@ -281,12 +283,18 @@ function createWorld(stage, cb){
     for (let k=0;k<4;k++){ const b = new THREE.Mesh(new THREE.BoxGeometry(.9-k*.15, .04, .04), steel); b.position.y = 1 + k*1.2; g.add(b); const b2 = b.clone(); b2.rotation.y = Math.PI/2; g.add(b2); }
     const arm = new THREE.Mesh(new THREE.BoxGeometry(2.4, .08, .08), steel); arm.position.y = 4.8; g.add(arm); return g; }
   const PYL = [[10.8,-26],[10.6,-16],[10.7,-6],[10.6,4],[10.9,14]];
-  const tops = [];
-  PYL.forEach(([x,z],i) => { const p = pylon(); p.position.set(x, H(x,z), z); if (i === 2){ p.rotation.set(0, .3, 1.32); p.position.y += .25; tops.push(new THREE.Vector3(x+3.2, H(x+3,z)+.3, z)); } else tops.push(new THREE.Vector3(x, H(x,z)+4.8, z)); scene.add(p); });
-  const wireMat = new THREE.LineBasicMaterial({color:0x22272b});
-  for (let i=0;i<tops.length-1;i++) [-1.1, 1.1].forEach(off => { const a = tops[i].clone(), b = tops[i+1].clone(); a.x += off*(i===2?0:1)*.0 + off; b.x += off;
-    const pts = []; for (let k=0;k<=24;k++){ const t = k/24; const p = a.clone().lerp(b, t); p.y -= Math.sin(Math.PI*t) * ((i===1||i===2) ? 1.6 : .9); pts.push(p); }
-    scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), wireMat)); });
+  const tops = [], pyls = [];
+  const [PX, PZ] = PYL[2], PY0 = H(PX,PZ), TOP_FALLEN = new THREE.Vector3(PX+3.2, H(PX+3,PZ)+.3, PZ), TOP_OK = new THREE.Vector3(PX, PY0+4.8, PZ);
+  PYL.forEach(([x,z],i) => { const p = pylon(); p.position.set(x, H(x,z), z); if (i === 2){ p.rotation.set(0, .3, 1.32); p.position.y += .25; tops.push(TOP_FALLEN.clone()); } else tops.push(new THREE.Vector3(x, H(x,z)+4.8, z)); scene.add(p); pyls.push(p); });
+  const wireMat = new THREE.LineBasicMaterial({color:0x22272b}), wires = new THREE.Group(); scene.add(wires);
+  function drawWires(fixed){
+    while (wires.children.length){ const l = wires.children.pop(); l.geometry.dispose(); }
+    tops[2].copy(fixed ? TOP_OK : TOP_FALLEN);
+    for (let i=0;i<tops.length-1;i++) [-1.1, 1.1].forEach(off => { const a = tops[i].clone(), b = tops[i+1].clone(); a.x += off; b.x += off;
+      const pts = []; for (let k=0;k<=24;k++){ const t = k/24; const p = a.clone().lerp(b, t); p.y -= Math.sin(Math.PI*t) * (!fixed && (i===1||i===2) ? 1.6 : .9); pts.push(p); }
+      wires.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), wireMat)); });
+  }
+  drawWires(false);
 
   /* --- núvols i pluja */
   const cloudTex = tex(256, 256, (g,w,h) => { for (let i=0;i<26;i++){ const x = w*(.2+rnd()*.6), y = h*(.35+rnd()*.3), r = w*(.12+rnd()*.16); const gr = g.createRadialGradient(x,y,0,x,y,r); gr.addColorStop(0,"rgba(235,238,242,.55)"); gr.addColorStop(1,"rgba(235,238,242,0)"); g.fillStyle = gr; g.fillRect(0,0,w,h); } });
@@ -306,7 +314,7 @@ function createWorld(stage, cb){
 
   /* --- punts d'informació */
   const spotObjs = {}, clickables = [];
-  function spotTex(n, found){ return tex(128, 128, (g,w,h) => { g.fillStyle = found ? "#1f7a43" : "#d4510f"; g.beginPath(); g.arc(64,64,56,0,Math.PI*2); g.fill(); g.lineWidth = 9; g.strokeStyle = "#ffffff"; g.stroke();
+  function spotTex(n, found, col){ return tex(128, 128, (g,w,h) => { g.fillStyle = found ? "#1f7a43" : (col || "#d4510f"); g.beginPath(); g.arc(64,64,56,0,Math.PI*2); g.fill(); g.lineWidth = 9; g.strokeStyle = "#ffffff"; g.stroke();
     g.fillStyle = "#ffffff"; g.textAlign = "center"; g.textBaseline = "middle"; if (found){ g.lineWidth = 12; g.beginPath(); g.moveTo(38,66); g.lineTo(56,84); g.lineTo(92,44); g.stroke(); } else { g.font = "bold 70px Arial"; g.fillText(String(n), 64, 68); } }); }
   const spotGroup = new THREE.Group(); scene.add(spotGroup);
   HOTSPOTS.forEach(h => {
@@ -397,17 +405,18 @@ function createWorld(stage, cb){
   const STREETS = [[[-1.4,-20],[-1.4,-6],[-1.4,4]], [[-0.6,-18],[-0.6,-8],[-0.6,3.5]], [[-1.2,-6.3],[-8.5,-6.3]], [[-1,-12.9],[3.2,-12.9]], [[-1.3,4.5],[-3.6,4.5]], [[-3.6,12.2],[-1.6,9.5],[-1.3,4]], [[-7.8,12],[-4.4,8.6],[-1.6,6]]];
   for (let i=0;i<26;i++){ const st = STREETS[i % STREETS.length]; const ox = (rnd()-.5)*.5, oz = (rnd()-.5)*.5; addWalker(town, civ(), st.map(([x,z]) => [x+ox, z+oz]), .45 + rnd()*.6, gY); }
   // residents de la residència al carrer, amb mantes
-  for (let i=0;i<12;i++){ const x = .1 + (i%6)*.55, z = -12.3 - Math.floor(i/6)*.55; const p = person(rnd() < .5 ? 0x8a8f99 : 0x6b5a4a, null, {cap:0xdedede, pants:0x4a4a4a}); p.position.set(x, gY(x,z), z); p.rotation.y = Math.PI + (rnd()-.5); if (i%3 === 0){ pose(p, "sit"); const bl = addBox(.42,.3,.3, std(0x7a3b3b), 0,.45,.12,0,p); } town.add(p); }
+  const residentsG = new THREE.Group(), hurt = new THREE.Group(); scene.add(residentsG, hurt);
+  for (let i=0;i<12;i++){ const x = .1 + (i%6)*.55, z = -12.3 - Math.floor(i/6)*.55; const p = person(rnd() < .5 ? 0x8a8f99 : 0x6b5a4a, null, {cap:0xdedede, pants:0x4a4a4a}); p.position.set(x, gY(x,z), z); p.rotation.y = Math.PI + (rnd()-.5); if (i%3 === 0){ pose(p, "sit"); const bl = addBox(.42,.3,.3, std(0x7a3b3b), 0,.45,.12,0,p); } residentsG.add(p); }
   // ferits estirats i persones que els ajuden
   const BLANKET = std(0xc9a227);
-  function injured(x, z, ry, helper, blanket){ const p = civ(); p.position.set(x, gY(x,z)+.13, z); lying(p, ry); town.add(p);
+  function injured(x, z, ry, helper, blanket){ const p = civ(); p.position.set(x, gY(x,z)+.13, z); lying(p, ry); hurt.add(p);
     if (blanket){ const b = new THREE.Mesh(new THREE.BoxGeometry(.06,.75,.42), BLANKET); b.position.set(-.06, .5, 0); p.add(b); }
-    if (helper){ const d = new THREE.Vector3(0,.55,0).applyEuler(p.rotation); const h = civ(); h.position.set(x + d.x + .35, gY(x,z), z + d.z + .35); h.rotation.y = Math.atan2(-.35,-.35); pose(h, "kneel"); town.add(h); } }
+    if (helper){ const d = new THREE.Vector3(0,.55,0).applyEuler(p.rotation); const h = civ(); h.position.set(x + d.x + .35, gY(x,z), z + d.z + .35); h.rotation.y = Math.atan2(-.35,-.35); pose(h, "kneel"); hurt.add(h); } }
   injured(-2.4,-9.0,.3,true); injured(-2.9,-10.7,1.4,true); injured(-2.1,-7.9,2.2,false,true);
   injured(-1.0,-3.2,.8,true); injured(2.6,-11.6,0,false,true); injured(-0.4,1.2,2.6,true);
   injured(-6.6,15.6,.4,true); injured(-4.0,15.4,1.8,true); injured(-7.6,13.0,2.9,false,true); injured(-3.4,12.4,.9,true,true);
   // persones que demanen ajuda
-  [[-3.1,-11.4],[-1.8,-10.2],[3.2,-11.8]].forEach(([x,z]) => { const p = civ(); p.position.set(x, gY(x,z), z); pose(p, "wave"); p.rotation.y = rnd()*6; town.add(p); });
+  [[-3.1,-11.4],[-1.8,-10.2],[3.2,-11.8]].forEach(([x,z]) => { const p = civ(); p.position.set(x, gY(x,z), z); pose(p, "wave"); p.rotation.y = rnd()*6; hurt.add(p); });
 
   /* --- festival: escenari, parades, tendes i multitud */
   const fest = new THREE.Group(); scene.add(fest);
@@ -475,6 +484,112 @@ function createWorld(stage, cb){
     lightTowers.forEach(l => { l.visible = t > 7; l.userData.L.intensity = t > 7 ? 1.2 : 0; });
   }
   const anim = {playing:false, t:0, done:null};
+
+  /* ================================================== ESCENA 1 · RECONSTRUCCIÓ I INTERDESASTRE
+     Cada obra té set(u): u = 0 (com després del terratrèmol) … 1 (obra acabada). */
+  const rec = new THREE.Group(); scene.add(rec);
+  const pop = (o, u) => { const b = o.userData.bs || (o.userData.bs = o.scale.clone()); o.visible = u > .001; o.scale.copy(b).multiplyScalar(Math.max(.001, u)); };
+  const stag = (grp, u, k) => grp.children.forEach((c,i) => pop(c, ease(clamp(u*(1+k*grp.children.length) - i*k, 0, 1))));
+  const recLabels = [], recLabel = (t, x, y, z) => { const l = label(t, {fs:38, scale:.015, bg:"rgba(226,240,255,.97)", border:"#1f5fa8"}); l.position.set(x, H(x,z)+y, z); recLabels.push(l); return l; };
+  const syncRecLabels = () => recLabels.forEach(l => { l.material.opacity = era === "rec" && showLabels ? 1 : 0; });
+  const B = {};
+  // 1 · llum: la torre caiguda s'aixeca, grup electrògen i fanals
+  { const g = new THREE.Group(); rec.add(g);
+    addBox(1.1,.7,.7, std(0xd9a21b), 9.2, H(9.2,-4.2)+.4, -4.2, 0, g); const lampM = new THREE.MeshStandardMaterial({color:0xfff2c0, emissive:0xffe9a8, emissiveIntensity:1.4});
+    [[-0.1,-4],[-0.1,-9],[-0.1,-14],[-2.0,1.5],[-2.0,-11]].forEach(([x,z]) => { const l = new THREE.Group(); addBox(.05,1.4,.05, steel, 0,.7,0,0,l); addBox(.22,.08,.22, lampM, 0,1.42,0,0,l); l.position.set(x, H(x,z), z); g.add(l); });
+    g.add(recLabel("Llum restablerta", 9.2, 2.2, -4.2));
+    B.llum = {fly:[10.6,2,-6], set(u){ const p = pyls[2]; p.rotation.z = 1.32*(1-u); p.position.y = PY0 + .25*(1-u); stag(g, u, .15); if (u >= 1 && !this.fixed){ this.fixed = true; drawWires(true); } if (u < 1 && this.fixed){ this.fixed = false; drawWires(false); } }}; }
+  // 2 · aigua potable: dipòsit i camió cisterna
+  { const g = new THREE.Group(); rec.add(g);
+    const tank = new THREE.Group(); const c = new THREE.Mesh(new THREE.CylinderGeometry(.62,.62,1.3,20), std(0xe8eef2, {roughness:.5})); c.position.y = .65; c.castShadow = true; tank.add(c);
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(.63,.63,.2,20), std(0x2f6fa8)); band.position.y = .9; tank.add(band); tank.position.set(-5.6, H(-5.6,1), 1); g.add(tank);
+    const tr = new THREE.Group(); addBox(.75,.6,.9, std(0xe8e8e8), 0,.55,.55,0,tr); const cist = new THREE.Mesh(new THREE.CylinderGeometry(.36,.36,1.5,16), std(0x2f6fa8,{metalness:.4, roughness:.4})); cist.rotation.x = Math.PI/2; cist.position.set(0,.66,-.55); tr.add(cist);
+    [[-.38,.55],[.38,.55],[-.38,-.7],[.38,-.7]].forEach(([x,z]) => { const w = new THREE.Mesh(new THREE.CylinderGeometry(.16,.16,.1,10), std(0x1a1a1a)); w.rotation.z = Math.PI/2; w.position.set(x,.16,z); tr.add(w); }); g.add(tr);
+    g.add(recLabel("Aigua potable", -5.6, 2.4, 1));
+    B.aigua = {fly:[-4,1,0], set(u){ g.visible = u > .001; pop(tank, ease(clamp(u*1.4,0,1))); g.children[2].visible = u > .5; const z = -20 + (2.2+20)*ease(u); tr.position.set(-1, roadY(-1,z)-.04, z); tr.visible = u > .001; }}; }
+  // 3 · accés: es retira l'esllavissada, excavadora i pont provisional
+  const bailey = new THREE.Group(); rec.add(bailey);
+  { const gm = std(0x4d6b3a, {metalness:.5, roughness:.45}); addBox(6.2,.12,1.5, std(0x5a5f63,{metalness:.4}), 0,0,0,0,bailey);
+    [-.78,.78].forEach(z => { addBox(6.2,.08,.08, gm, 0,.75,z,0,bailey); addBox(6.2,.08,.08, gm, 0,.05,z,0,bailey); for (let i=0;i<=8;i++){ addBox(.06,.75,.06, gm, -3.1+i*.775,.4,z,0,bailey); if (i<8){ const d = addBox(.05,1.08,.05, gm, -3.1+i*.775+.39,.4,z,0,bailey); d.rotation.z = (i%2?1:-1)*.8; } } });
+    bailey.position.set(4.2, 1.12, 18.5); bailey.add(recLabel("Pont provisional", 0, 0, 0));
+    bailey.children[bailey.children.length-1].position.set(0, 2.2, 0); }
+  const digger = new THREE.Group(); rec.add(digger);
+  { addBox(1,.6,1.4, std(0xf2b51b), 0,.55,0,0,digger); addBox(.7,.6,.6, std(0xf2b51b), 0,1.1,.2,0,digger); const arm = addBox(.18,.18,1.8, std(0xf2b51b), 0,1.3,1.4,0,digger); arm.rotation.x = .5; addBox(1.1,.22,1.6, std(0x222222), 0,.15,0,0,digger); digger.position.set(7.6, roadY(7.6,24.5)-.05, 24.5); digger.rotation.y = Math.PI; }
+  B.acces = {fly:[6,1,22], set(u){ const k = 1 - .78*ease(u); slide.scale.set(k, k, k); pop(digger, clamp(u*3,0,1)); pop(bailey, B.pont.u >= 1 ? 0 : ease(clamp((u-.3)/.7,0,1))); }};
+  // 4 · albergs de la Creu Roja
+  const alb = new THREE.Group(); rec.add(alb);
+  { const crossT = tex(64,64,(g,w,h) => { g.fillStyle = "#fff"; g.fillRect(0,0,w,h); g.fillStyle = "#d11f1f"; g.fillRect(24,10,16,44); g.fillRect(10,24,44,16); });
+    for (let i=0;i<10;i++){ const x = -9.2 + (i%5)*1.7, z = i < 5 ? 11.6 : 13.6; const t = tent(0xf2f2ee, 1.4, 1.2); const s = new THREE.Mesh(new THREE.PlaneGeometry(.45,.45), new THREE.MeshBasicMaterial({map:crossT})); s.position.set(0,.5,.61); t.add(s); t.position.set(x, H(x,z)+.02, z); alb.add(t); }
+    const l = recLabel("Albergs · Creu Roja", -5.8, 3, 12.6); alb.add(l); }
+  B.alberg = {fly:[-5.6,0,12.6], set(u){ stag(alb, u, .08); }};
+  // 5 · escola en mòduls prefabricats
+  const mods = new THREE.Group(); rec.add(mods);
+  { const mm = std(0xffffff, {map:facade(1.6, 1.1, {floors:1, wall:"#dfe9ee", shut:null, door:true})});
+    [[-12.6,-8.6],[-12.6,-6.6],[-10.8,-6.6]].forEach(([x,z]) => { const m = addBox(1.6,1.1,1.8, [mm,mm,std(0x9aa5ab),std(0x9aa5ab),mm,mm], x, H(x,z)+.56, z, 0, mods); });
+    mods.add(recLabel("Escola provisional", -11.6, 2.6, -7.4)); }
+  B.escola = {fly:[-11.4,0,-7.6], set(u){ stag(mods, u, .2); }};
+  // 6 · es desmunta l'hospital de campanya i es reobre el consultori
+  const cons = new THREE.Group(); rec.add(cons);
+  { const b = building(-2.0, 7.6, 2, 1.8, 1, {wall:"#f4f2ec", shut:"#2f6fa8", sign:"CONSULTORI"}); scene.remove(b); cons.add(b);
+    cons.add(recLabel("Consultori reobert", -2.0, 2.6, 7.6)); }
+  B.hospital = {fly:[-6,0,5], set(u){ const k = Math.max(.001, 1 - ease(clamp(u*1.4,0,1))); campTents.forEach(t => t.scale.set(k,k,k)); gen.visible = u < .7; stag(cons, ease(clamp((u-.3)/.7,0,1)), .2); }};
+  // 7 · la residència: la gent gran marxa a un lloc segur i s'apuntala l'edifici
+  const scaf = new THREE.Group(); rec.add(scaf);
+  { const sm = std(0xc9cfd4, {metalness:.6, roughness:.4}); const y0 = H(1.3,-15.2);
+    for (let i=0;i<=6;i++){ addBox(.05,3.6,.05, sm, -1.5+i, 1.8, 1.55, 0, scaf); }
+    for (let k=1;k<=3;k++){ addBox(6.1,.05,.05, sm, 1.5, k*1.15, 1.55, 0, scaf); addBox(6.1,.06,.4, std(0x9b7b52), 1.5, k*1.15-.04, 1.75, 0, scaf); }
+    scaf.position.set(-.2, y0, -15.2); const l = recLabel("Residència: obres de reforç", 1.5, 0, 0); l.position.set(1.5, 4.6, 0); scaf.add(l); }
+  B.resi = {fly:[1.3,1,-15], set(u){ residentsG.visible = u < .5; pop(scaf, ease(clamp(u*1.2,0,1))); }};
+  // 8 · pont definitiu de formigó
+  const bridge = new THREE.Group(); rec.add(bridge);
+  { const cm = std(0xb9b5ad, {roughness:.8}); addBox(6.6,.32,1.9, cm, 0,0,0,0,bridge); [-.95,.95].forEach(z => addBox(6.6,.35,.08, std(0x8b9196,{metalness:.5}), 0,.33,z,0,bridge)); addBox(.7,1.4,1.2, cm, 0,-.8,0,0,bridge);
+    bridge.position.set(4.2, 1.18, 18.5); const l = recLabel("Pont nou", 0, 0, 0); l.position.set(0, 2.1, 0); bridge.add(l); }
+  B.pont = {u:0, fly:[4.2,1,18.5], set(u){ this.u = u; pop(bridge, ease(u)); [d1, d2].forEach(d => d.visible = u < .5); pop(bailey, u >= 1 ? 0 : (B.acces.u >= 1 ? 1 : 0)); }};
+  // 9 · escola nova antisísmica
+  const newWing = new THREE.Group(); rec.add(newWing);
+  { const b = building(-3.9, -8.8, 3, 2.4, 2, {wall:"#f3e7c2", shut:"#2f6fa8", roof:"slate", door:false}); scene.remove(b); newWing.add(b); newWing.add(recLabel("Escola antisísmica", -3.9, 4, -8.8)); }
+  B.antisis = {fly:[-4,1,-9], set(u){ schoolRuin.visible = u < .5; stag(newWing, u, .3); }};
+  // 10 · punt de suport psicològic
+  const psy = new THREE.Group(); rec.add(psy);
+  { const PXs = -4.5, PZs = -20.4; const t = tent(0x2f8a7a, 1.8, 1.5); t.position.set(PXs, H(PXs,PZs), PZs); psy.add(t);
+    for (let i=0;i<6;i++){ const a = i/6*Math.PI*2, x = PXs + Math.cos(a)*1.3, z = PZs + 2 + Math.sin(a)*.8; const p = person(i ? CLOTH[i*2 % CLOTH.length] : 0x2f8a7a, null, {}); p.position.set(x, H(x,z)+.15, z); p.rotation.y = Math.atan2(PXs-x, PZs+2-z); pose(p, "sit"); psy.add(p); }
+    psy.add(recLabel("Suport psicològic", PXs, 3, PZs+1)); }
+  B.psico = {fly:[-4.5,0,-19.4], set(u){ stag(psy, u, .1); }};
+  Object.values(B).forEach(b => { b.u = 0; const f = b.set; b.set = function(u){ this.u = u; f.call(this, u); }; });
+
+  /* --- cercles blaus de les obres (fase 5) */
+  const workGroup = new THREE.Group(); workGroup.visible = false; scene.add(workGroup);
+  const workObjs = {}, workClick = [];
+  OBRES.forEach(o => { const [x,y,z] = o.pos, gy = H(x,z), g = new THREE.Group(); g.position.set(x, 0, z);
+    const icon = new THREE.Sprite(new THREE.SpriteMaterial({map:spotTex(o.n, false, "#1f5fa8"), depthTest:false, transparent:true})); icon.scale.set(2, 2, 1); icon.position.y = gy + y; icon.renderOrder = 30;
+    const pillar = new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,y,8,1,true), new THREE.MeshBasicMaterial({color:0x3b8fe0, transparent:true, opacity:.45, depthWrite:false})); pillar.position.y = gy + y/2;
+    const hit = new THREE.Mesh(new THREE.SphereGeometry(1.4, 8, 6), new THREE.MeshBasicMaterial({visible:false})); hit.position.y = gy + y; hit.userData.work = o.id;
+    g.add(icon, pillar, hit); workGroup.add(g); workClick.push(hit); workObjs[o.id] = {icon, pillar, o, baseY:gy+y}; });
+  function markWork(id, done){ const w = workObjs[id]; if (!w || w.done === done) return; w.done = done; w.icon.material.map = spotTex(w.o.n, done, "#1f5fa8"); w.icon.material.needsUpdate = true; w.pillar.material.color.setHex(done ? 0x3fbf6f : 0x3b8fe0); }
+
+  /* --- èpoques: emergència (temporal), reconstrucció (dia 15), interdesastre (un any després) */
+  let era = "emer";
+  const setRain = () => { rain.visible = !reduced && era === "emer"; };
+  function setEra(e){
+    if (e === era) return; era = e; const calm = e !== "emer";
+    sky.material.map = calm ? skyDay : skyTex; sky.material.needsUpdate = true;
+    scene.fog.color.setHex(calm ? 0x9fb3c2 : FOG); scene.fog.near = calm ? 100 : 70; scene.fog.far = calm ? 280 : 190;
+    hemi.intensity = calm ? .9 : .72; sun.intensity = calm ? 1.45 : 1.15; sun.color.setHex(calm ? 0xfff1dc : 0xffd7ad);
+    clouds.children.forEach(c => { c.material.opacity = calm ? .32 : .75; c.position.y = calm ? 26 + (c.position.y % 3) : 20 + (c.position.y % 9); });
+    flash = 0; flashLight.intensity = 0; setRain();
+    hurt.visible = !calm; crowdB.visible = crowdH.visible = !calm;
+    rescuers.forEach(p => p.visible = !calm); lightTowers.forEach(l => { l.visible = !calm && act.visible; l.userData.L.intensity = l.visible ? 1.2 : 0; }); helis.forEach(h => h.m.visible = !calm);
+    // un any després: tot està fet; ja no calen els mòduls, els albergs ni l'excavadora
+    if (e === "pre"){ Object.values(B).forEach(b => b.set(1)); B.escola.set(0); B.alberg.set(0); pop(digger, 0); }
+    syncRecLabels();
+  }
+  function build(id, animate){ const b = B[id]; if (!b || b.u >= 1) return;
+    if (!animate || reduced){ b.set(1); return; }
+    pTweens.push({t:0, dur:2.4, fn:u => b.set(u), done:() => b.set(1)});
+    if (b.fly && view === "vall") flyTo(new THREE.Vector3(b.fly[0]+8, 9, b.fly[2]+11), new THREE.Vector3(b.fly[0], b.fly[1], b.fly[2]));
+  }
+  function resetRec(){ era = "x"; setEra("emer"); Object.values(B).forEach(b => b.set(0)); Object.keys(workObjs).forEach(id => markWork(id, false)); }
+  Object.values(B).forEach(b => b.set(0));
 
   /* ================================================== ESCENA 2 · HOSPITAL DE CAMPANYA */
   const hs = new THREE.Scene(); hs.background = new THREE.Color(0x8d9aa6); hs.fog = new THREE.Fog(0x8d9aa6, 60, 140);
@@ -615,15 +730,16 @@ function createWorld(stage, cb){
   canvasEl.addEventListener("pointerdown", e => { down = {x:e.clientX, y:e.clientY}; fly = null; });
   canvasEl.addEventListener("pointerup", e => { const d0 = down; down = null; if (!d0 || Math.hypot(e.clientX-d0.x, e.clientY-d0.y) > 6 || view !== "vall" || anim.playing) return;
     const r = canvasEl.getBoundingClientRect(); ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1); ray.setFromCamera(ndc, camera);
-    const hits = ray.intersectObjects(clickables, false).filter(h => h.object.parent.parent.visible); if (hits.length && cb.onSpot) cb.onSpot(hits[0].object.userData.spot); });
+    const hits = ray.intersectObjects(clickables, false).filter(h => h.object.parent.parent.visible); if (hits.length && cb.onSpot){ cb.onSpot(hits[0].object.userData.spot); return; }
+    if (workGroup.visible){ const wh = ray.intersectObjects(workClick, false); if (wh.length && cb.onWork) cb.onWork(wh[0].object.userData.work); } });
   canvasEl.addEventListener("pointermove", e => { if (view !== "vall" || e.buttons) return; const r = canvasEl.getBoundingClientRect(); ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1); ray.setFromCamera(ndc, camera);
-    canvasEl.style.cursor = spotGroup.visible && ray.intersectObjects(clickables, false).length ? "pointer" : "grab"; });
+    canvasEl.style.cursor = (spotGroup.visible && ray.intersectObjects(clickables, false).length) || (workGroup.visible && ray.intersectObjects(workClick, false).length) ? "pointer" : "grab"; });
 
   function resize(){ const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); [camera, hcam].forEach(c => { c.aspect = w/Math.max(1,h); c.updateProjectionMatrix(); }); }
   new ResizeObserver(resize).observe(stage); resize();
 
   /* ================================================== bucle */
-  let last = performance.now(), flash = 0, blink = 0, crowdTick = 0;
+  let last = performance.now(), flash = 0, blink = 0, crowdTick = 0, paused = false;
   function loop(now){
     const dt = Math.min(.05, (now - last)/1000); last = now;
     if (fly){ fly.u = Math.min(1, fly.u + dt/fly.dur); const e = ease(fly.u); fly.c.position.lerpVectors(fly.p0, fly.p, e); fly.ctl.target.lerpVectors(fly.t0, fly.t, e); if (fly.u >= 1) fly = null; }
@@ -642,12 +758,13 @@ function createWorld(stage, cb){
       for (let i=0;i<a.length;i+=6){ a[i+1] -= dt*18; a[i+4] -= dt*18; if (a[i+1] < 0){ a[i+1] += 24; a[i+4] += 24; } }
       rgeo.attributes.position.needsUpdate = true;
       clouds.children.forEach((c,i) => { c.position.x += dt*(.3 + (i%5)*.08); if (c.position.x > 75) c.position.x = -75; });
-      if (Math.random() < .0018) flash = 1; flash = Math.max(0, flash - dt*3.2); flashLight.intensity = flash*1.4;
+      if (era === "emer" && Math.random() < .0018) flash = 1; flash = Math.max(0, flash - dt*3.2); flashLight.intensity = flash*1.4;
       const s = 1 + Math.sin(now/280)*.14; Object.values(spotObjs).forEach(o => { o.ring.scale.set(s,s,s); o.icon.position.y = o.baseY + Math.sin(now/500 + o.h.n)*.18; });
+      if (workGroup.visible) Object.values(workObjs).forEach(o => { o.icon.position.y = o.baseY + Math.sin(now/520 + o.o.n)*.15; });
     }
     if (!reduced){ stepWalkers(dt); if ((crowdTick = (crowdTick + 1) % 2) === 0) placeCrowd(now/1000); }
     for (let i=pTweens.length-1;i>=0;i--){ const tw = pTweens[i]; tw.t += dt; const u = Math.min(1, tw.t/tw.dur); tw.fn(u); if (u >= 1){ pTweens.splice(i,1); tw.done(); } }
-    renderer.render(view === "vall" ? scene : hs, view === "vall" ? camera : hcam);
+    if (!paused) renderer.render(view === "vall" ? scene : hs, view === "vall" ? camera : hcam);
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
@@ -666,9 +783,15 @@ function createWorld(stage, cb){
   api.isPlaying = () => anim.playing;
   api.admit = admit; api.free = free;
   api.resetAll = () => { act.visible = false; anim.playing = false; while (patients.children.length) patients.remove(patients.children[0]); Object.keys(used).forEach(k => used[k] = 0); pTweens.length = 0; carriers.forEach(c => hs.remove(c)); carriers.clear(); buildQueue();
+    resetRec(); workGroup.visible = false; fly = null; anim.done = null;
     Object.values(spotObjs).forEach(o => { o.found = false; o.icon.material.map = spotTex(o.h.n, false); o.icon.material.needsUpdate = true; o.pillar.material.color.setHex(0xff7a2a); o.ring.material.color.setHex(0xff7a2a); o.name.visible = false; }); };
-  api.setMotion = r => { reduced = r; rain.visible = !r; };
-  api.setLabels = on => { showLabels = on; placeLabels.visible = on; };
+  api.setMotion = r => { reduced = r; setRain(); };
+  api.setEra = setEra; api.build = build; api.markWork = markWork;
+  api.showWorks = on => { workGroup.visible = on; };
+  api.focusWork = id => { const b = B[id]; if (b && b.fly && view === "vall") flyTo(new THREE.Vector3(b.fly[0]+8, 9, b.fly[2]+11), new THREE.Vector3(b.fly[0], b.fly[1], b.fly[2])); };
+  api.overview = () => { if (view === "vall") flyTo(new THREE.Vector3(30, 30, 44), new THREE.Vector3(-1, 0, 0), 1.6); };
+  api.setPaused = p => { paused = p; };
+  api.setLabels = on => { showLabels = on; placeLabels.visible = on; syncRecLabels(); };
   api.zoom = k => { const c = view === "vall" ? camera : hcam, ctl = view === "vall" ? ctlV : ctlH; const dir = c.position.clone().sub(ctl.target); const L = clamp(dir.length() * (k > 0 ? .8 : 1.25), ctl.minDistance, ctl.maxDistance); c.position.copy(ctl.target).add(dir.setLength(L)); };
   api.resetCam = () => { const H0 = view === "vall" ? HOME_V : HOME_H; flyTo(H0.p.clone(), H0.t.clone()); };
   api.viewHospitalFromValley = () => flyTo(new THREE.Vector3(4, 14, 22), new THREE.Vector3(-7, 0, 4));

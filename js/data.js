@@ -128,3 +128,96 @@ const TAG_SHAPE = {
   k:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5 19 19M19 5 5 19" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>'
 };
 const CAPACITY = {r:6, y:8, g:12, k:4};
+
+/* Glossari · fases noves */
+Object.assign(GLOSSARI, {
+  reconstruccio:["Reconstrucció","Fase després de l'emergència. L'objectiu és deixar la zona com estava abans: serveis, carreteres, cases i escoles."],
+  interdesastre:["Interdesastre","Temps sense desastre. És el moment de preparar-se: prevenir riscos i tenir el pla d'emergència al dia."],
+  serveis:["Serveis essencials","Llum, aigua potable, accés per carretera, menjar i un lloc on dormir."],
+  bailey:["Pont provisional","Pont metàl·lic que es munta en pocs dies mentre es construeix el pont definitiu."],
+  antisismic:["Construcció antisísmica","Edifici fet amb normes especials perquè aguanti els terratrèmols."],
+  autoproteccio:["Pla d'autoprotecció","Pla que han de tenir els edificis o activitats on hi ha molta gent o risc: escoles, residències, festivals..."],
+  pem:["Pla d'emergència municipal","Pla del poble. Diu quins riscos hi ha, quins recursos té el poble i què ha de fer cadascú."],
+  simulacre:["Simulacre","Assaig d'una emergència per practicar el pla, com si fos real."],
+  esalert:["ES-Alert","Missatge d'avís que arriba a tots els mòbils d'una zona quan hi ha una emergència."]
+});
+
+/* Fase 5 · Reconstrucció (dia 15) */
+const P5 = [
+  {id:"fase", src:"U2", t:"Han passat 15 dies. Ja no hi ha ningú per rescatar. En quina fase som?", o:["Emergència","Reconstrucció","Interdesastre","Alerta"], a:1, pts:30, neg:10,
+   ok:"Els rescats i el triatge s'han acabat. Comença la fase de reconstrucció, recuperació o rehabilitació.", hint:"Pensa: encara hi ha persones atrapades o ara toca arreglar el poble?"},
+  {id:"obj", src:"U2", t:"Quin és l'objectiu d'aquesta fase?", o:["Rescatar les persones atrapades","Deixar la zona com estava abans: serveis i infraestructures","Avisar la població que arriba un terratrèmol","Fer el triatge de les víctimes"], a:1, pts:30, neg:10,
+   ok:"La reconstrucció vol que la població torni a tenir els serveis i les infraestructures d'abans del desastre. Pot durar molt de temps.", hint:"Pensa en la paraula: re-construir."},
+  {id:"creu", src:"U2", t:"Qui s'encarrega dels albergs provisionals i de repartir menjar, aigua i roba d'abric?", o:["La UME","La Creu Roja","El SEM","Els Bombers"], a:1, pts:35, neg:15,
+   ok:"La Creu Roja munta i gestiona les àrees d'albergs provisionals i reparteix aliments, beguda i elements d'abric i higiene.", hint:"És una ONG que ja has vist a la fase 3."},
+  {id:"aigua", src:"U1", t:"Hi ha hagut dies sense aigua potable. Quin risc per a la salut cal vigilar ara?", o:["Cremades pel sol","Malalties per aigua bruta (diarrees)","Fractures","Al·lèrgies al pol·len"], a:1, pts:35, neg:15,
+   ok:"Sense aigua potable apareixen malalties per aigua contaminada: és un efecte tardà. Cal controlar i clorar l'aigua i vigilar els casos de diarrea.", hint:"Recorda els efectes tardans de la fase 2."}
+];
+/* Obres i accions: quan s'han de fer. 0 = primer (serveis essencials), 1 = després (setmanes), 2 = al final (mesos o anys) */
+const REC_OPTS = ["Primer","Després","Al final"];
+const REC_HELP = ["serveis essencials, primers dies","setmanes","mesos o anys"];
+const OBRES = [
+  {id:"llum", n:1, nom:"Tornar la llum", t:"Portar grups electrògens i aixecar una línia elèctrica provisional", a:0, pos:[10.6,6,-6],
+   why:"Sense llum no funcionen les neveres de vacunes i insulina ni les bombes d'aigua. És un servei essencial: primer."},
+  {id:"aigua", n:2, nom:"Aigua potable", t:"Portar cisternes, clorar l'aigua i analitzar-la", a:0, pos:[-4.6,3.5,0.6],
+   why:"L'aigua potable és un servei essencial i evita malalties. Primer."},
+  {id:"acces", n:3, nom:"Obrir un accés", t:"Retirar l'esllavissada i muntar un pont provisional", a:0, pos:[5,4,22],
+   why:"Sense accés no arriben camions de material ni es poden traslladar els malalts. És el primer pas per tornar a la normalitat."},
+  {id:"alberg", n:4, nom:"Albergs provisionals", t:"Muntar tendes i mòduls per a les famílies que no poden tornar a casa", a:0, pos:[-5.5,3.5,15.5],
+   why:"Les persones necessiten un lloc segur on dormir des del primer dia. La Creu Roja gestiona els albergs. Primer."},
+  {id:"escola", n:5, nom:"Escola en mòduls", t:"Reobrir l'escola en mòduls prefabricats", a:1, pos:[-11.4,4,-7.6],
+   why:"Quan els serveis essencials ja funcionen, en unes setmanes cal tornar a fer classe, encara que sigui en mòduls. Després."},
+  {id:"hospital", n:6, nom:"Tancar l'hospital de campanya", t:"Desmuntar l'hospital de campanya i reobrir el consultori del poble", a:1, pos:[-7.4,4,6.8],
+   why:"Quan ja hi ha accés i el consultori és segur, l'hospital de campanya es desmunta. No és el primer dia: després."},
+  {id:"resi", n:7, nom:"Residència segura", t:"Traslladar la gent gran a un edifici segur i reforçar la residència", a:1, pos:[1.3,6,-15.2],
+   why:"Primer cal un lloc provisional per a la gent gran. Reforçar l'edifici i tornar-hi porta setmanes: després."},
+  {id:"pont", n:8, nom:"Pont definitiu", t:"Construir un pont nou definitiu", a:2, pos:[1.8,4,18.5],
+   why:"Un pont nou es projecta i es construeix en mesos o anys. Mentrestant funciona el pont provisional. Al final."},
+  {id:"antisis", n:9, nom:"Escola antisísmica", t:"Reconstruir l'escola amb normes antisísmiques", a:2, pos:[-3.9,4,-8.8],
+   why:"Reconstruir un edifici amb normes antisísmiques costa mesos o anys. Al final."},
+  {id:"psico", n:10, nom:"Suport psicològic", t:"Fer el seguiment de la salut mental (ansietat, estrès) de la població", a:2, pos:[-4.5,3,-19.6],
+   why:"L'ansietat i l'estrès són efectes tardans. Cal acompanyar la població durant mesos. Al final (llarg termini)."}
+];
+
+/* Fase 6 · Interdesastre (un any després) */
+const P6 = [
+  {id:"fase", src:"U2", t:"Ha passat un any. El poble ja està reconstruït i no hi ha cap avís de desastre. En quina fase som?", o:["Alerta","Reconstrucció","Interdesastre","Impacte"], a:2, pts:20, neg:10,
+   ok:"Sense desastre ni avís de cap desastre a prop, som en fase d'interdesastre: és el temps per preparar-se.", hint:"Pensa: hi ha cap senyal que arribi un desastre?"},
+  {id:"funcio", src:"U2 · Protecció civil", t:"Actualitzar el pla d'emergència amb el que heu après és una funció de protecció civil. Quina?", o:["Previsió","Planificació","Intervenció","Rehabilitació"], a:1, partial:{0:5}, pts:20, neg:10,
+   ok:"La planificació estableix les respostes davant d'una emergència a través dels plans d'emergència i la seva actualització.",
+   part:"La previsió identifica i avalua els riscos. Escriure i actualitzar el pla és planificació.", hint:"Quina funció parla dels plans d'emergència?"},
+  {id:"auto", src:"U2", t:"El festival, l'escola i la residència han de tenir el seu propi pla. Quin?", o:["Pla territorial","Pla especial","Pla d'autoprotecció","No els cal cap pla"], a:2, pts:20, neg:10,
+   ok:"Les activitats i els edificis amb molta gent o amb risc han de fer un pla d'autoprotecció.", hint:"És el pla que fa cada edifici o activitat per protegir-se."}
+];
+const RISCOS = [
+  {id:"sisme", t:"Rèpliques i nous terratrèmols", a:1, why:"La vall és zona sísmica: hi pot haver rèpliques i nous terratrèmols."},
+  {id:"riu", t:"Crescudes del riu i inundacions amb temporal", a:1, why:"Amb el temporal el riu creix. Per això l'hospital no es va muntar a la ribera."},
+  {id:"slide", t:"Esllavissades als vessants i a la carretera", a:1, why:"Ja n'hi va haver una que va tallar la carretera. Pot tornar a passar amb pluja o rèpliques."},
+  {id:"aillament", t:"Quedar aïllats: només hi ha una entrada a la vall", a:1, why:"Si l'únic accés es talla, el poble queda aïllat i no és evacuable."},
+  {id:"foc", t:"Incendi forestal al bosc de pins", a:1, why:"La vall és plena de pins i a l'estiu hi ha festival: és un risc real."},
+  {id:"gent", t:"Molta gent junta al festival", a:1, why:"400 persones més al poble: cal un pla d'autoprotecció del festival."},
+  {id:"tsunami", t:"Tsunami", a:0, why:"És una vall del Pirineu, lluny del mar: no hi ha risc de tsunami."},
+  {id:"nuclear", t:"Accident en una central nuclear de la vall", a:0, why:"A la vall no hi ha cap central nuclear."}
+];
+const RISC_OPTS = ["No aplica","Risc a tenir en compte"];
+const RECURSOS = [
+  {id:"camp", t:"Camp de futbol (lloc per a l'hospital de campanya)", a:0, why:"És al poble. Ja va funcionar: és pla, segur i a prop del carrer principal."},
+  {id:"heli", t:"Heliport", a:0, why:"És al poble. Serveix perquè aterrin els helicòpters quan el temps ho permet."},
+  {id:"volunt", t:"Voluntaris de protecció civil", a:0, why:"Cada municipi pot tenir la seva agrupació de voluntaris de protecció civil."},
+  {id:"consult", t:"Consultori i farmàcia", a:0, why:"Són al poble: atenció primària i medicació."},
+  {id:"ume", t:"UME", a:1, why:"La UME ve de fora. La demana protecció civil quan cal."},
+  {id:"hosp", t:"Hospital de referència", a:1, why:"És a 90 km. No és un recurs del poble i, si la vall queda aïllada, no s'hi pot arribar."}
+];
+const REC_PLACE = ["Al poble","Cal demanar-lo de fora"];
+const MESURES = [
+  {id:"acces2", t:"Fer un segon accés a la vall (pont nou i una pista alternativa)", a:1},
+  {id:"simul", t:"Fer simulacres cada any amb l'escola, la residència i el festival", a:1},
+  {id:"magatzem", t:"Tenir al poble un magatzem amb material sanitari, aigua i un generador", a:1},
+  {id:"avisos", t:"Avisar la població amb ES-Alert i sirenes, i tenir un telèfon per satèl·lit", a:1},
+  {id:"mapa", t:"Marcar al pla el camp de futbol per a l'hospital de campanya i l'heliport per aterrar", a:1},
+  {id:"ribera", t:"Muntar l'hospital de campanya a la ribera del riu perquè és pla", a:0, why:"Amb temporal el riu creix: és una zona de risc."},
+  {id:"treure", t:"Treure el terratrèmol del pla perquè ja ha passat", a:0, why:"El risc sísmic continua: el pla ha de tenir en compte el SISMICAT."},
+  {id:"esperar", t:"No preparar res al poble i esperar que vingui la UME", a:0, why:"La vall pot quedar aïllada: el poble ha d'estar preparat pels seus mitjans les primeres hores."},
+  {id:"prohibir", t:"Prohibir el festival per sempre", a:0, why:"No cal prohibir-lo: cal que tingui un pla d'autoprotecció."}
+];
+const MESURES_N = 5;

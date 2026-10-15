@@ -14,7 +14,9 @@ function applyPrefs(){
   const r = document.documentElement;
   r.dataset.size = prefs.size; r.dataset.font = prefs.font;
   if (prefs.contrast === "high") r.dataset.contrast = "high"; else delete r.dataset.contrast;
-  if (window.WORLD){ WORLD.setMotion(prefs.motion === "off" || matchMedia("(prefers-reduced-motion: reduce)").matches); WORLD.setLabels(prefs.labels === "on"); }
+  const still = prefs.motion === "off" || matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (window.WORLD){ WORLD.setMotion(still); WORLD.setLabels(prefs.labels === "on"); }
+  if (window.PLAN) PLAN.setMotion(still);
   try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch(e) {}
 }
 
@@ -56,7 +58,7 @@ addEventListener("scroll", hidePop, {passive:true}); addEventListener("resize", 
 /* ================================================== Joc */
 function startApp(USER){
   const KEY = "hc-arnes-lg02:" + USER;   // clau pròpia: logistica01 i logistica02 comparteixen origen (rvs78.github.io)
-  const fresh = () => ({phase:0, name:"", found:[], p2:{}, ef:{}, p3:{}, order:[], orderDone:false, activated:false, tri:{}, vi:0, hints:0, hintOpen:{}});
+  const fresh = () => ({phase:0, name:"", found:[], p2:{}, ef:{}, p3:{}, order:[], orderDone:false, activated:false, tri:{}, vi:0, hints:0, hintOpen:{}, p5:{}, rec:{}, p6:{}, risc:{}, res:{}, mes:[], mesDone:false});
   let S = fresh();
   try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch(e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch(e) {} };
@@ -70,30 +72,50 @@ function startApp(USER){
   const sc2 = () => P2.reduce((s,q) => s + qDelta(q, S.p2[q.id]), 0) + EFECTES.reduce((s,e,i) => s + efDelta(e, S.ef[i]), 0);
   const sc3 = () => P3.reduce((s,q) => s + qDelta(q, S.p3[q.id]), 0) + [0,1,2,3].reduce((s,i) => s + ordDelta(i), 0);
   const sc4 = () => VICTIMS.reduce((s,v,i) => s + triDelta(i), 0);
-  const bonus = () => (S.phase >= 5 && S.hints === 0) ? 50 : 0;
-  const total = () => Math.max(0, sc1() + sc2() + sc3() + sc4() + bonus());
+  const recDelta = (o, v) => v === undefined ? 0 : v === o.a ? 12 : -4;
+  const pickDelta = (o, v) => v === undefined ? 0 : v === o.a ? 10 : -5;
+  const mesDelta = m => (!S.mesDone || !S.mes.includes(m.id)) ? 0 : m.a ? 10 : -5;
+  const sc5 = () => P5.reduce((s,q) => s + qDelta(q, S.p5[q.id]), 0) + OBRES.reduce((s,o) => s + recDelta(o, S.rec[o.id]), 0);
+  const sc6 = () => P6.reduce((s,q) => s + qDelta(q, S.p6[q.id]), 0) + RISCOS.reduce((s,r) => s + pickDelta(r, S.risc[r.id]), 0)
+    + RECURSOS.reduce((s,r) => s + pickDelta(r, S.res[r.id]), 0) + MESURES.reduce((s,m) => s + mesDelta(m), 0);
+  const MAX = 1500, REPORT = 7;
+  const bonus = () => (S.phase >= REPORT && S.hints === 0) ? 50 : 0;
+  const total = () => Math.max(0, sc1() + sc2() + sc3() + sc4() + sc5() + sc6() + bonus());
   const errors = () => P2.filter(q => S.p2[q.id] !== undefined && S.p2[q.id] !== q.a).length + EFECTES.filter((e,i) => S.ef[i] !== undefined && S.ef[i] !== e.a).length
-    + P3.filter(q => S.p3[q.id] !== undefined && S.p3[q.id] !== q.a).length + (S.orderDone ? [0,1,2,3].filter(i => S.order[i] !== i).length : 0) + VICTIMS.filter((v,i) => S.tri[i] !== undefined && S.tri[i] !== v.a).length;
+    + P3.filter(q => S.p3[q.id] !== undefined && S.p3[q.id] !== q.a).length + (S.orderDone ? [0,1,2,3].filter(i => S.order[i] !== i).length : 0) + VICTIMS.filter((v,i) => S.tri[i] !== undefined && S.tri[i] !== v.a).length
+    + P5.filter(q => S.p5[q.id] !== undefined && S.p5[q.id] !== q.a).length + OBRES.filter(o => S.rec[o.id] !== undefined && S.rec[o.id] !== o.a).length
+    + P6.filter(q => S.p6[q.id] !== undefined && S.p6[q.id] !== q.a).length + RISCOS.filter(r => S.risc[r.id] !== undefined && S.risc[r.id] !== r.a).length
+    + RECURSOS.filter(r => S.res[r.id] !== undefined && S.res[r.id] !== r.a).length + (S.mesDone ? MESURES.filter(m => !m.a && S.mes.includes(m.id)).length : 0);
 
   /* --- món 3D */
-  const W = window.WORLD = createWorld($("#stage"), {onSpot: id => openSpot(id)});
+  const W = window.WORLD = createWorld($("#stage"), {onSpot: id => openSpot(id), onWork: id => openWork(id)});
+  const PL = window.PLAN = createPlan($("#stage"));
   applyPrefs();
   S.found.forEach(id => W.markFound(id));
   if (S.activated) W.finishActivation();
   Object.keys(S.tri).sort((a,b) => a-b).forEach(i => W.admit(S.tri[i], false, +i));
+  const eraOf = () => S.phase >= 6 ? "pre" : S.phase >= 5 ? "rec" : "emer";
+  W.setEra(eraOf());
+  OBRES.forEach(o => { if (S.rec[o.id] !== undefined){ W.build(o.id, false); W.markWork(o.id, true); } });
 
   const panel = $("#panel");
-  const PH = ["Inici","Analitza","Classifica","Activa","Triatge","Informe"];
+  const PH = ["Inici","Analitza","Classifica","Activa","Triatge","Reconstrueix","Prevé","Informe"];
 
   /* --- vistes */
+  let curView = "vall";
   function setView(v){
     if (v === "hosp" && !W.ok) return;
-    W.setLocked(S.phase < 3); W.setView(v);
-    $("#vVall").setAttribute("aria-pressed", v === "vall"); $("#vHosp").setAttribute("aria-pressed", v === "hosp");
+    if (v === "plan" && S.phase < 6) v = "vall";
+    curView = v;
+    W.setLocked(S.phase < 3); if (v !== "plan") W.setView(v); W.setPaused(v === "plan");
+    $("#vVall").setAttribute("aria-pressed", v === "vall"); $("#vHosp").setAttribute("aria-pressed", v === "hosp"); $("#vPla").setAttribute("aria-pressed", v === "plan");
     const locked = S.phase < 3;
     $("#lock").hidden = !(v === "hosp" && locked);
     $("#beds").hidden = !(v === "hosp" && !locked);
-    $("#hint3d").textContent = v === "vall" ? "Arrossega per girar el mapa · roda o pinça per apropar · toca els cercles taronja" : "Arrossega per girar · roda o pinça per apropar";
+    PL.el.hidden = v !== "plan"; $(".ctrls").hidden = v === "plan";
+    $("#hint3d").textContent = v === "plan" ? "Mapa de riscos i recursos · es completa amb les teves respostes"
+      : v === "hosp" ? "Arrossega per girar · roda o pinça per apropar"
+      : S.phase === 5 ? "Arrossega per girar el mapa · toca els cercles blaus de les obres" : S.phase <= 2 ? "Arrossega per girar el mapa · roda o pinça per apropar · toca els cercles taronja" : "Arrossega per girar el mapa · roda o pinça per apropar";
     renderBeds();
   }
   let bedsOpen = (() => { try { const v = localStorage.getItem("hc-beds-open"); if (v !== null) return v === "1"; } catch(e) {} return innerWidth > 640; })();
@@ -109,26 +131,33 @@ function startApp(USER){
   $("#lock").addEventListener("click", e => { if (!e.target.closest(".lockcard")) setView("vall"); });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("#lock").hidden) setView("vall"); });
   $("#vHosp").onclick = () => setView("hosp");
+  $("#vPla").onclick = () => setView("plan");
   $("#zIn").onclick = () => W.zoom(1); $("#zOut").onclick = () => W.zoom(-1); $("#zHome").onclick = () => W.resetCam();
   $("#skip").onclick = () => W.finishActivation();
 
   /* --- capçalera */
   function renderTop(){
     $("#steps").innerHTML = PH.slice(1).map((p,i) => { const n = i+1, cls = n < S.phase ? "done" : (n === S.phase ? "now" : ""); return `<li class="${cls}"${n === S.phase ? ' aria-current="step"' : ""}>${n}. ${p}</li>`; }).join("");
-    $("#score").innerHTML = `${total()} <small>/ 1000</small>`;
-    const clocks = ["03:12 · terratrèmol","03:25 · reconeixement","03:40 · valoració","03:55 · activació","06:40 · triatge","08:00 · informe"];
+    $("#score").innerHTML = `${total()} <small>/ ${MAX}</small>`;
+    const clocks = ["03:12 · terratrèmol","03:25 · reconeixement","03:40 · valoració","03:55 · activació","06:40 · triatge","Dia 15 · reconstrucció","1 any després · interdesastre","Informe final"];
     $("#clock").textContent = clocks[S.phase];
     $("#vHosp").innerHTML = (S.phase < 3 ? ICON.lock.replace("<svg", '<svg class="ico"') : "") + "Hospital";
+    $("#vPla").hidden = S.phase < 6;
   }
 
   let shownPhase = -1;
   function render(){
     renderTop();
-    panel.innerHTML = [renderIntro, renderP1, renderP2, renderP3, renderP4, renderP5][S.phase]();
+    panel.innerHTML = [renderIntro, renderP1, renderP2, renderP3, renderP4, renderP5, renderP6, renderReport][S.phase]();
     bind();
     W.showSpots(S.phase <= 2);
     W.showSites(S.phase === 3 && S.p3.lloc === undefined);
-    if (S.phase === 4 && shownPhase !== 4) setView("hosp"); else setView(W.getView());
+    W.setEra(eraOf()); W.showWorks(S.phase === 5);
+    syncPlan();
+    if (S.phase === 4 && shownPhase !== 4) setView("hosp");
+    else if (S.phase === 5 && shownPhase !== 5){ setView("vall"); if (shownPhase !== -1) W.overview(); }
+    else if (S.phase === 6 && shownPhase !== 6) setView("plan");
+    else setView(curView);
     shownPhase = S.phase;
   }
   const todo = (steps) => `<div class="todo"><b>Què has de fer</b><ol>${steps.map(s => `<li>${s}</li>`).join("")}</ol></div>`;
@@ -161,7 +190,7 @@ function startApp(USER){
       <dl class="fitxa"><dt>Hora</dt><dd>03:12</dd><dt>Magnitud</dt><dd>6,1 · a 4 km del poble</dd><dt>Radi afectat</dt><dd>uns 6 km</dd>
       <dt>Persones a la vall</dt><dd>1.400 + 400 visitants</dd><dt>${term("potencials","Víctimes potencials")}</dt><dd>entre 180 i 320</dd><dt>Hospital més proper</dt><dd>a 90 km, no s'hi pot arribar</dd></dl></article>
       <article class="card"><div class="cardhead"><h2 class="eyebrow">Com funciona</h2>${sayBtn()}</div>
-      <p>Hi ha <b>5 fases</b>: analitza, classifica, activa, triatge i informe.</p>
+      <p>Hi ha <b>7 fases</b>: analitza, classifica, activa, triatge, reconstrueix, prevé i informe.</p>
       <p>Cada resposta correcta <b>suma</b> punts. Cada error <b>resta</b> punts. Només pots respondre una vegada.</p>
       <p>Les paraules <span style="text-decoration:underline dotted 2px">subratllades amb punts</span> tenen una explicació: toca-les. El botó <b>Escolta</b> llegeix el text en veu alta.</p>
       <label class="fl" for="nom">Escriu el teu nom i cognoms</label>
@@ -263,7 +292,7 @@ function startApp(USER){
         <div class="vitals">${vital("Pot caminar?", v.camina)}${vital("Respira?", v.respira)}${vital("Respiracions per minut (FR)", v.fr)}${vital("Pols al canell", v.pols)}${vital("Reompliment capil·lar", v.rc)}${vital("Fa cas a ordres senzilles?", v.ordres)}</div>
         <div class="tags" role="group" aria-label="Tria l'etiqueta de triatge">${tags}</div>${fb}</article>`;
     } else {
-      body = `<article class="card"><p><b>Triatge acabat.</b> Has classificat les 10 víctimes. Punts del triatge: ${sc4()} de 400.</p><button type="button" class="btn" id="next">Mostra l'informe</button></article>`;
+      body = `<article class="card"><p><b>Triatge acabat.</b> Has classificat les 10 víctimes. Punts del triatge: ${sc4()} de 400.</p><p>Ara passaran uns dies. Quan s'acabi l'emergència, començarà la reconstrucció del poble.</p><button type="button" class="btn" id="next">Continua a la reconstrucció</button></article>`;
     }
     const algo = S.hintOpen.algo ? `<div class="algo">${ALGO_SVG}</div>` : `<button type="button" class="hintbtn" data-hint="algo">Mostra l'esquema del mètode START (perds la bonificació final)</button>`;
     return `<article class="card"><div class="cardhead"><div class="eyebrow">Fase 4 · Triatge · fins a 400 punts</div>${sayBtn()}</div>
@@ -272,16 +301,94 @@ function startApp(USER){
       ${algo}</article>${body}`;
   }
 
-  /* --- Fase 5 */
-  function hashStr(str){ let h = 0x811c9dc5; for (let i=0;i<str.length;i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h >>> 0; }
-  const code = () => { const h = hashStr([USER, S.name.trim().toLowerCase(), sc1(), sc2(), sc3(), sc4(), bonus(), S.found.join(","), JSON.stringify(S.tri)].join("|")).toString(16).toUpperCase().padStart(8, "0"); return "VA-" + h.slice(0,4) + "-" + h.slice(4); };
-  const resultText = () => ["HOSPITAL DE CAMPANYA · VALL D'ARNES", "Alumne/a: " + S.name.trim(), "Correu: " + USER, "1 Analitza: " + sc1() + "/100", "2 Classifica: " + sc2() + "/250", "3 Activa: " + sc3() + "/200", "4 Triatge: " + sc4() + "/400", "Bonificació sense pistes: " + bonus() + "/50", "Errors: " + errors(), "TOTAL: " + total() + "/1000", "Codi de verificació: " + code()].join("\n");
+  /* --- elements de tria (obres, riscos, recursos) */
+  function choiceHTML(attr, idx, title, sub, opts, a, val, delta, why, src, first, pts){
+    const ans = val !== undefined;
+    const b = opts.map((o,k) => { let c = "opt"; if (ans){ if (k === a) c += " right"; else if (k === val) c += " wrong"; } return `<button type="button" class="${c}" data-${attr}="${idx}:${k}" ${ans ? "disabled" : ""}>${esc(o)}</button>`; }).join("");
+    const fb = ans ? fbHTML(val === a ? "ok" : "ko", delta, (val === a ? "" : "La resposta és: " + opts[a].toLowerCase() + ". ") + why, src) : "";
+    return `<div class="q${first ? " first" : ""}" id="${attr}-${idx}"><div class="qh"><h3>${esc(title)}</h3><span class="pts">${pts}</span></div>${sub ? `<p class="small" style="margin:.2em 0 0">${esc(sub)}</p>` : ""}
+      <div class="opts" role="group" aria-label="${esc(title)}">${b}</div>${fb}</div>`;
+  }
+  const leftMsg = n => n ? `<span class="small muted">${n === 1 ? "Falta 1 resposta" : "Falten " + n + " respostes"}</span>` : "";
+
+  /* --- Fase 5 · Reconstrueix */
   function renderP5(){
-    const b = [["Analista d'escenaris", S.found.length === 6], ["Classificació precisa", sc2() >= 220], ["Coordinació", sc3() >= 170], ["Ull clínic", sc4() >= 360], ["Sense pistes", S.hints === 0]];
+    const qa = P5.slice(0,2).map((q,i) => qHTML(q, S.p5[q.id], "p5", i === 0)).join("");
+    const qb = P5.slice(2).map((q,i) => qHTML(q, S.p5[q.id], "p5", i === 0)).join("");
+    const nDone = OBRES.filter(o => S.rec[o.id] !== undefined).length;
+    const obres = OBRES.map((o,i) => choiceHTML("rec", i, o.n + " · " + o.nom, o.t, REC_OPTS, o.a, S.rec[o.id], recDelta(o, S.rec[o.id]), o.why, "U2", i === 0, "+12 / −4")).join("");
+    const left = P5.filter(q => S.p5[q.id] === undefined).length + (OBRES.length - nDone);
+    return `<article class="card"><div class="cardhead"><div class="eyebrow">Fase 5 · Reconstrueix · fins a 250 punts</div>${sayBtn()}</div>
+      <h1 class="ptitle">Dia 15: tornem a aixecar Arnes</h1>
+      <p>El temporal ha marxat. Els ferits estan atesos i ja no queda ningú atrapat. Comença la ${term("reconstruccio","reconstrucció")}: el poble ha de tornar a tenir llum, aigua, carretera, cases i escola.</p>
+      ${todo(["Respon les preguntes sobre la fase.", "Decideix quan s'ha de fer cada obra: <strong>primer</strong>, <strong>després</strong> o <strong>al final</strong>. Pots tocar els cercles blaus del mapa per anar a cada obra.", "Cada obra que decideixes es construeix al mapa 3D. Mira-ho!"])}
+      ${qa}</article>
+      <article class="card"><div class="cardhead"><div class="eyebrow">Pla de reconstrucció · +12 / −4 cadascuna</div>${sayBtn()}</div>
+      <p>Primer van els ${term("serveis","serveis essencials")}. Les obres grans i definitives, com un ${term("bailey","pont")} nou o una escola ${term("antisismic","antisísmica")}, triguen mesos.</p>
+      <div class="legend">${REC_OPTS.map((o,k) => `<span><b>${o}</b> · ${REC_HELP[k]}</span>`).join("")}</div>
+      ${obres}
+      ${hintHTML("p5obres", "Pregunta't: la gent pot viure sense això avui mateix? Si no pot, és «primer». Si és una obra definitiva i gran, és «al final».")}
+      <div class="progress" aria-hidden="true"><span style="width:${nDone/OBRES.length*100}%"></span></div>
+      <p class="small muted" style="margin-top:6px">${nDone} de ${OBRES.length} obres decidides</p></article>
+      <article class="card"><div class="cardhead"><div class="eyebrow">Qui ho fa i què cal vigilar</div>${sayBtn()}</div>${qb}</article>
+      <div class="row"><button type="button" class="btn" id="next" ${left ? "disabled" : ""}>Continua a la fase 6</button>${leftMsg(left)}</div>`;
+  }
+  function openWork(id){
+    if (S.phase !== 5) return;
+    const i = OBRES.findIndex(o => o.id === id), el = $("#rec-" + i); if (!el) return;
+    W.focusWork(id);
+    el.scrollIntoView({behavior: prefs.motion === "off" ? "auto" : "smooth", block:"center"});
+    const b = el.querySelector("button:not([disabled])") || el.querySelector(".fb"); if (b){ if (!b.matches("button")) b.setAttribute("tabindex","-1"); b.focus({preventScroll:true}); }
+    el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash");
+  }
+
+  /* --- Fase 6 · Prevé (interdesastre) */
+  function syncPlan(){
+    RISCOS.forEach(r => PL.set("risc:" + r.id, r.a && S.risc[r.id] !== undefined));
+    RECURSOS.forEach(r => PL.set("res:" + r.id, S.res[r.id] !== undefined));
+    MESURES.forEach(m => PL.set("mes:" + m.id, S.mesDone && m.a)); PL.set("mes:pontnou", S.mesDone);
+    const nr = RISCOS.filter(r => r.a && S.risc[r.id] !== undefined).length, nres = RECURSOS.filter(r => S.res[r.id] !== undefined).length;
+    PL.count(`Riscos al mapa: ${nr} de ${RISCOS.filter(r => r.a).length}`, `Recursos: ${nres} de ${RECURSOS.length}`, S.mesDone ? "Mesures noves: afegides al pla ✓" : `Mesures noves: pendents (tria'n ${MESURES_N})`);
+  }
+  function renderP6(){
+    const qs = P6.map((q,i) => qHTML(q, S.p6[q.id], "p6", i === 0)).join("");
+    const rs = RISCOS.map((r,i) => choiceHTML("risc", i, r.t, "", RISC_OPTS, r.a, S.risc[r.id], pickDelta(r, S.risc[r.id]), r.why, "U1", i === 0, "+10 / −5")).join("");
+    const rc = RECURSOS.map((r,i) => choiceHTML("res", i, r.t, "", REC_PLACE, r.a, S.res[r.id], pickDelta(r, S.res[r.id]), r.why, "U2", i === 0, "+10 / −5")).join("");
+    const mes = MESURES.map((m,i) => { const on = S.mes.includes(m.id); let cls = on ? "sel" : ""; if (S.mesDone) cls += m.a ? (on ? " okp" : " miss") : (on ? " kop" : "");
+      const mark = S.mesDone ? (m.a ? (on ? " ✓ +10" : " · era bona") : (on ? " ✗ −5" : "")) : "";
+      return `<button type="button" class="${cls}" data-mes="${i}" aria-pressed="${on}" ${S.mesDone ? "disabled" : ""}><span class="n">${on ? "✓" : ""}</span><span>${esc(m.t)}<b>${mark}</b>${S.mesDone && !m.a && on ? `<small class="muted" style="display:block">${esc(m.why)}</small>` : ""}</span></button>`; }).join("");
+    let mfb = "";
+    if (S.mesDone){ const d = MESURES.reduce((s,m) => s + mesDelta(m), 0), good = MESURES.every(m => !!m.a === S.mes.includes(m.id));
+      mfb = fbHTML(good ? "ok" : d > 0 ? "pa" : "ko", d, (good ? "Has triat les 5 mesures bones. " : "Les mesures bones eren: " + MESURES.filter(m => m.a).map(m => m.t.toLowerCase()).join("; ") + ". ") + "Totes surten del que va passar: l'aïllament, la falta de material, els avisos i el lloc segur per a l'hospital de campanya.", "U2"); }
+    const left = P6.filter(q => S.p6[q.id] === undefined).length + RISCOS.filter(r => S.risc[r.id] === undefined).length + RECURSOS.filter(r => S.res[r.id] === undefined).length + (S.mesDone ? 0 : 1);
+    return `<article class="card"><div class="cardhead"><div class="eyebrow">Fase 6 · Prevé · fins a 250 punts</div>${sayBtn()}</div>
+      <h1 class="ptitle">Un any després: actualitza el pla</h1>
+      <p>Arnes ja està reconstruït. Som en ${term("interdesastre")}: és el temps per preparar-se. L'Ajuntament revisa el ${term("pem","pla d'emergència municipal")} i tu hi participes com a responsable sanitari/ària.</p>
+      ${todo(["Respon les 3 preguntes.", "Marca quins riscos té la vall i quins recursos hi ha al poble.", `Tria ${MESURES_N} mesures noves per al pla.`, "Mira el <strong>mapa</strong>: es completa amb les teves respostes."])}
+      <div class="row" style="margin-top:10px"><button type="button" class="btn ghost small" id="showPlan">Mostra el mapa de riscos</button></div>
+      ${qs}</article>
+      <article class="card"><div class="cardhead"><div class="eyebrow">Riscos a tenir en compte · +10 / −5 cadascun</div>${sayBtn()}</div>
+      <p>Recorda què va passar. Quins riscos ha de tenir en compte el pla d'Arnes?</p>${rs}</article>
+      <article class="card"><div class="cardhead"><div class="eyebrow">Recursos · +10 / −5 cadascun</div>${sayBtn()}</div>
+      <p>El pla ha de dir quins recursos té el poble i quins s'han de demanar de fora.</p>${rc}</article>
+      <article class="card"><div class="cardhead"><div class="eyebrow">Mesures noves · tria'n ${MESURES_N} · +10 / −5</div>${sayBtn()}</div>
+      <p>Què heu après? Tria les ${MESURES_N} mesures que afegiries al pla. Penseu en ${term("simulacre","simulacres")}, ${term("esalert","avisos")} i ${term("autoproteccio","plans d'autoprotecció")}.</p>
+      <div class="order checks">${mes}</div>
+      ${S.mesDone ? mfb : `<div class="row" style="margin-top:10px"><button type="button" class="btn ghost" id="mesReset" ${S.mes.length ? "" : "disabled"}>Esborra</button><button type="button" class="btn" id="mesOk" ${S.mes.length === MESURES_N ? "" : "disabled"}>Afegeix-les al pla</button><span class="small muted">${S.mes.length} de ${MESURES_N} triades</span></div>${hintHTML("p6mes", "Busca les mesures que resolen els problemes que vau tenir: aïllament, falta de material i d'avisos. Descarta les que treuen protecció.")}`}
+      </article>
+      <div class="row"><button type="button" class="btn" id="next" ${left ? "disabled" : ""}>Mostra l'informe final</button>${leftMsg(left)}</div>`;
+  }
+
+  /* --- Fase 7 · Informe */
+  function hashStr(str){ let h = 0x811c9dc5; for (let i=0;i<str.length;i++){ h ^= str.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h >>> 0; }
+  const code = () => { const h = hashStr([USER, S.name.trim().toLowerCase(), sc1(), sc2(), sc3(), sc4(), sc5(), sc6(), bonus(), S.found.join(","), JSON.stringify(S.tri), JSON.stringify([S.rec, S.risc, S.res, S.mes])].join("|")).toString(16).toUpperCase().padStart(8, "0"); return "VA-" + h.slice(0,4) + "-" + h.slice(4); };
+  const resultText = () => ["HOSPITAL DE CAMPANYA · VALL D'ARNES", "Alumne/a: " + S.name.trim(), "Correu: " + USER, "1 Analitza: " + sc1() + "/100", "2 Classifica: " + sc2() + "/250", "3 Activa: " + sc3() + "/200", "4 Triatge: " + sc4() + "/400", "5 Reconstrueix: " + sc5() + "/250", "6 Prevé: " + sc6() + "/250", "Bonificació sense pistes: " + bonus() + "/50", "Errors: " + errors(), "TOTAL: " + total() + "/" + MAX, "Codi de verificació: " + code()].join("\n");
+  function renderReport(){
+    const b = [["Analista d'escenaris", S.found.length === 6], ["Classificació precisa", sc2() >= 220], ["Coordinació", sc3() >= 170], ["Ull clínic", sc4() >= 360], ["Reconstructor/a", sc5() >= 210], ["Prevenció", sc6() >= 210], ["Sense pistes", S.hints === 0]];
     return `<article class="cert"><div class="eyebrow">Informe de guàrdia · Vall d'Arnes</div>
       <div class="row" style="justify-content:space-between;margin-top:6px"><div><div class="small muted">Responsable sanitari/ària</div><div style="font-weight:700;font-size:1.2rem">${esc(S.name.trim())}</div><div class="small muted">${esc(USER)}</div></div>
-      <div style="text-align:right"><div class="big">${total()}</div><div class="small muted">punts de 1000</div></div></div>
-      <table><tr><td>1 · Analitza</td><td>${sc1()} / 100</td></tr><tr><td>2 · Classifica</td><td>${sc2()} / 250</td></tr><tr><td>3 · Activa</td><td>${sc3()} / 200</td></tr><tr><td>4 · Triatge</td><td>${sc4()} / 400</td></tr><tr><td>Bonificació sense pistes</td><td>${bonus()} / 50</td></tr><tr><td>Errors</td><td>${errors()}</td></tr></table>
+      <div style="text-align:right"><div class="big">${total()}</div><div class="small muted">punts de ${MAX}</div></div></div>
+      <table><tr><td>1 · Analitza</td><td>${sc1()} / 100</td></tr><tr><td>2 · Classifica</td><td>${sc2()} / 250</td></tr><tr><td>3 · Activa</td><td>${sc3()} / 200</td></tr><tr><td>4 · Triatge</td><td>${sc4()} / 400</td></tr><tr><td>5 · Reconstrueix</td><td>${sc5()} / 250</td></tr><tr><td>6 · Prevé</td><td>${sc6()} / 250</td></tr><tr><td>Bonificació sense pistes</td><td>${bonus()} / 50</td></tr><tr><td>Errors</td><td>${errors()}</td></tr></table>
       <div class="badges">${b.map(([t,on]) => `<span class="badge ${on ? "" : "off"}">${on ? "★ " : ""}${t}</span>`).join("")}</div>
       <p class="small" style="margin-top:12px">Codi de verificació: <span class="code">${code()}</span></p></article>
       <article class="card"><div class="cardhead"><div class="eyebrow">Lliura-ho a Classroom</div>${sayBtn()}</div>
@@ -290,6 +397,7 @@ function startApp(USER){
       <textarea class="copy" id="resultTxt" readonly aria-label="Resultat en text">${esc(resultText())}</textarea></article>
       <article class="card"><div class="cardhead"><div class="eyebrow">Per pensar</div>${sayBtn()}</div>
       <p>A l'activitat en paper «Alerta al Camp» l'escenari era <b>evacuable</b>. Què canvia quan no ho és? Pensa en el material, el personal, l'aigua, l'electricitat i el temps.</p>
+      <p>Has viscut totes les fases del desastre. Què afegiries al pla d'emergència del teu municipi?</p>
       <div class="row"><button type="button" class="btn ghost" id="restart">Torna a començar</button><span class="small muted" id="rsMsg"></span></div></article>`;
   }
 
@@ -301,7 +409,7 @@ function startApp(USER){
     const nx = $("#next"); if (nx) nx.onclick = () => { S.phase++; save(); render(); scrollTo({top:0, behavior: prefs.motion === "off" ? "auto" : "smooth"}); const h = panel.querySelector(".ptitle"); h && h.setAttribute("tabindex","-1"); h && h.focus({preventScroll:true}); };
     panel.querySelectorAll("[data-spot]").forEach(b => b.onclick = () => openSpot(b.dataset.spot));
     panel.querySelectorAll("[data-hint]").forEach(b => b.onclick = () => { const k = b.dataset.hint; if (!S.hintOpen[k]){ S.hintOpen[k] = true; S.hints++; save(); render(); } });
-    panel.querySelectorAll("[data-q]").forEach(b => b.onclick = () => { const [g, id, i] = b.dataset.q.split(":"); const store = g === "p2" ? S.p2 : S.p3; if (store[id] !== undefined) return; store[id] = +i; save();
+    panel.querySelectorAll("[data-q]").forEach(b => b.onclick = () => { const [g, id, i] = b.dataset.q.split(":"); const store = {p2:S.p2, p3:S.p3, p5:S.p5, p6:S.p6}[g]; if (store[id] !== undefined) return; store[id] = +i; save();
       if (g === "p3" && id === "lloc"){ W.focusSite(+i); } render(); focusFb(b.dataset.q); });
     panel.querySelectorAll("[data-ef]").forEach(b => b.onclick = () => { const [i,k] = b.dataset.ef.split(":").map(Number); if (S.ef[i] === undefined){ S.ef[i] = k; save(); render(); focusFb(b.dataset.ef, "ef"); } });
     panel.querySelectorAll("[data-ord]").forEach(b => b.onclick = () => { const idx = +b.dataset.ord, p = S.order.indexOf(idx); if (p >= 0) S.order.splice(p, 1); else if (S.order.length < 4) S.order.push(idx); save(); render(); const nb = panel.querySelector(`[data-ord="${idx}"]`); nb && nb.focus(); });
@@ -309,11 +417,20 @@ function startApp(USER){
     const ook = $("#ordOk"); if (ook) ook.onclick = () => { S.orderDone = true; save(); render(); };
     const ac = $("#activate"); if (ac) ac.onclick = () => { ac.disabled = true; setView("vall"); $("#skip").hidden = false; W.playActivation(() => { $("#skip").hidden = true; S.activated = true; save(); render(); const n = $("#next"); n && n.focus(); }); };
     panel.querySelectorAll("[data-tag]").forEach(b => b.onclick = () => { const i = S.vi; if (S.tri[i]) return; S.tri[i] = b.dataset.tag; save(); setView("hosp"); W.admit(b.dataset.tag, true, i); render(); renderBeds(); const n = $("#nextV"); n && n.focus(); });
+    const pick = (attr, list, store, after) => panel.querySelectorAll(`[data-${attr}]`).forEach(b => b.onclick = () => { const [i,k] = b.dataset[attr].split(":").map(Number), it = list[i];
+      if (store()[it.id] !== undefined) return; store()[it.id] = k; save(); after && after(it); render(); focusIn("#" + attr + "-" + i); });
+    pick("rec", OBRES, () => S.rec, o => { W.build(o.id, true); W.markWork(o.id, true); });
+    pick("risc", RISCOS, () => S.risc); pick("res", RECURSOS, () => S.res);
+    panel.querySelectorAll("[data-mes]").forEach(b => b.onclick = () => { const id = MESURES[+b.dataset.mes].id, p = S.mes.indexOf(id); if (p >= 0) S.mes.splice(p, 1); else if (S.mes.length < MESURES_N) S.mes.push(id); save(); render(); const nb = panel.querySelector(`[data-mes="${b.dataset.mes}"]`); nb && nb.focus(); });
+    const mr = $("#mesReset"); if (mr) mr.onclick = () => { S.mes = []; save(); render(); };
+    const mo = $("#mesOk"); if (mo) mo.onclick = () => { S.mesDone = true; save(); setView("plan"); render(); focusIn(".checks", true); };
+    const sp = $("#showPlan"); if (sp) sp.onclick = () => { setView("plan"); if (innerWidth <= 960) $("#stage").scrollIntoView({behavior: prefs.motion === "off" ? "auto" : "smooth"}); };
     const nv = $("#nextV"); if (nv) nv.onclick = () => { S.vi++; save(); render(); };
     const cp = $("#copy"); if (cp) cp.onclick = () => { const msg = $("#copied"), fallback = () => { const ta = $("#resultTxt"); ta.focus(); ta.select(); msg.textContent = "Text seleccionat. Copia'l amb Ctrl+C."; };
       try { navigator.clipboard.writeText(resultText()).then(() => { msg.textContent = "Copiat."; }, fallback); } catch(e){ fallback(); } };
     const rs = $("#restart"); if (rs) rs.onclick = () => { if (rs.dataset.armed){ S = fresh(); save(); if (window.speechSynthesis) speechSynthesis.cancel(); W.resetAll(); shownPhase = -1; setView("vall"); W.resetCam(); render(); scrollTo({top:0}); return; } rs.dataset.armed = "1"; rs.textContent = "Sí, esborra-ho tot"; $("#rsMsg").textContent = "Es perdrà la puntuació. Torna a prémer per confirmar."; };
   }
+  function focusIn(sel, card){ let el = panel.querySelector(sel); if (card && el) el = el.closest(".card"); const fb = el && el.querySelector(".fb"); if (fb){ fb.setAttribute("tabindex","-1"); fb.focus({preventScroll:false}); } }
   function focusFb(key, kind){ const sel = kind === "ef" ? `[data-ef^="${key.split(":")[0]}:"]` : `[data-q^="${key.split(":").slice(0,2).join(":")}:"]`; const b = panel.querySelector(sel); const fb = b && b.closest(".q") && b.closest(".q").querySelector(".fb"); if (fb){ fb.setAttribute("tabindex","-1"); fb.focus({preventScroll:false}); } }
 
   render();
