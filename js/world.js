@@ -569,7 +569,7 @@ function createWorld(stage, cb){
   buildQueue();
   // pacients
   const patients = new THREE.Group(); hs.add(patients);
-  const used = {r:0, y:0, g:0, k:0}; const pTweens = [];
+  const used = {r:0, y:0, g:0, k:0}; const pTweens = []; const carriers = new Set();
   const TAGC = {g:0x1f7a43, y:0xf1c21b, r:0xc21f1f, k:0x161616};
   function admit(tag, animate, idx){
     const q = queue[idx]; let sx = 17, sz = 0, walks = true, shirt = 0xd9d4c4;
@@ -593,9 +593,9 @@ function createWorld(stage, cb){
     } else {
       const car = new THREE.Group(); const st = stretcher(); st.rotation.y = Math.PI/2; car.add(st); car.add(p); p.position.set(0,.6,-.5); lying(p, Math.PI/2);
       const bearers = [person(null,null,UNI.tes), person(null,null,UNI.tes)]; bearers[0].position.set(0,0,1.3); bearers[1].position.set(0,0,-1.3); bearers.forEach(b => { b.userData.arms.forEach(a => a.rotation.x = -.6); car.add(b); });
-      hs.add(car);
+      hs.add(car); carriers.add(car);
       pTweens.push({t:0, dur:3.6, fn:u => { const e = ease(u), [x,z] = route(e), [nx,nz] = route(Math.min(1,e+.02)); car.position.set(x,.12,z); car.rotation.y = Math.atan2(nx-x, nz-z); const k = Math.sin(u*44)*.45; bearers.forEach(b => { b.userData.legs[0].rotation.x = k; b.userData.legs[1].rotation.x = -k; }); },
-        done:() => { car.remove(p); hs.remove(car); place(); }});
+        done:() => { car.remove(p); hs.remove(car); carriers.delete(car); place(); }});
     }
   }
   function free(){ return {r:Math.max(0,CAPACITY.r-used.r), y:Math.max(0,CAPACITY.y-used.y), g:Math.max(0,CAPACITY.g-used.g), k:Math.max(0,CAPACITY.k-used.k)}; }
@@ -613,7 +613,7 @@ function createWorld(stage, cb){
   /* --- interacció: toc sobre punts */
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(); let down = null;
   canvasEl.addEventListener("pointerdown", e => { down = {x:e.clientX, y:e.clientY}; fly = null; });
-  canvasEl.addEventListener("pointerup", e => { if (!down || Math.hypot(e.clientX-down.x, e.clientY-down.y) > 6 || view !== "vall" || anim.playing) return; down = null;
+  canvasEl.addEventListener("pointerup", e => { const d0 = down; down = null; if (!d0 || Math.hypot(e.clientX-d0.x, e.clientY-d0.y) > 6 || view !== "vall" || anim.playing) return;
     const r = canvasEl.getBoundingClientRect(); ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1); ray.setFromCamera(ndc, camera);
     const hits = ray.intersectObjects(clickables, false).filter(h => h.object.parent.parent.visible); if (hits.length && cb.onSpot) cb.onSpot(hits[0].object.userData.spot); });
   canvasEl.addEventListener("pointermove", e => { if (view !== "vall" || e.buttons) return; const r = canvasEl.getBoundingClientRect(); ndc.set(((e.clientX-r.left)/r.width)*2-1, -((e.clientY-r.top)/r.height)*2+1); ray.setFromCamera(ndc, camera);
@@ -665,7 +665,7 @@ function createWorld(stage, cb){
   api.finishActivation = () => { applyAct(T_END); anim.t = T_END; if (anim.playing){ anim.playing = false; ctlV.enabled = view === "vall"; const d = anim.done; anim.done = null; d && d(); } };
   api.isPlaying = () => anim.playing;
   api.admit = admit; api.free = free;
-  api.resetAll = () => { act.visible = false; anim.playing = false; while (patients.children.length) patients.remove(patients.children[0]); Object.keys(used).forEach(k => used[k] = 0); pTweens.length = 0; buildQueue();
+  api.resetAll = () => { act.visible = false; anim.playing = false; while (patients.children.length) patients.remove(patients.children[0]); Object.keys(used).forEach(k => used[k] = 0); pTweens.length = 0; carriers.forEach(c => hs.remove(c)); carriers.clear(); buildQueue();
     Object.values(spotObjs).forEach(o => { o.found = false; o.icon.material.map = spotTex(o.h.n, false); o.icon.material.needsUpdate = true; o.pillar.material.color.setHex(0xff7a2a); o.ring.material.color.setHex(0xff7a2a); o.name.visible = false; }); };
   api.setMotion = r => { reduced = r; rain.visible = !r; };
   api.setLabels = on => { showLabels = on; placeLabels.visible = on; };

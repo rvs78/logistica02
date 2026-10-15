@@ -50,10 +50,12 @@ function showTerm(btn){
 function hidePop(){ if (popEl){ popEl.remove(); popEl = null; } }
 document.addEventListener("click", e => { const t = e.target.closest(".term"); if (t){ e.preventDefault(); showTerm(t); return; } if (popEl && !e.target.closest(".pop")) hidePop(); });
 document.addEventListener("keydown", e => { if (e.key === "Escape") hidePop(); });
+// el globus és «fixed»: si la pàgina es mou, quedaria lluny de la paraula
+addEventListener("scroll", hidePop, {passive:true}); addEventListener("resize", hidePop);
 
 /* ================================================== Joc */
 function startApp(USER){
-  const KEY = "hc-arnes-v2:" + USER;
+  const KEY = "hc-arnes-lg02:" + USER;   // clau pròpia: logistica01 i logistica02 comparteixen origen (rvs78.github.io)
   const fresh = () => ({phase:0, name:"", found:[], p2:{}, ef:{}, p3:{}, order:[], orderDone:false, activated:false, tri:{}, vi:0, hints:0, hintOpen:{}});
   let S = fresh();
   try { const raw = localStorage.getItem(KEY); if (raw) S = Object.assign(fresh(), JSON.parse(raw)); } catch(e) {}
@@ -193,8 +195,9 @@ function startApp(USER){
       <div class="row" style="margin-top:12px">${sayBtn("Escolta")}<button type="button" class="btn" id="dlgClose">Entesos</button></div></div>`;
     d.querySelector(".say").onclick = e => speak(h.nom + ". " + h.text, e.currentTarget);
     d.querySelector("img").onerror = e => { e.target.closest(".imgwrap").innerHTML = '<p style="color:#fff;padding:20px;text-align:center">No s\'ha pogut carregar la foto. Revisa la connexió.</p>'; };
-    const close = () => { try { d.close(); } catch(e) { d.removeAttribute("open"); } if (window.speechSynthesis) speechSynthesis.cancel(); if (S.phase === 1) render(); };
-    $("#dlgClose").onclick = close; d.onclose = () => { if (S.phase === 1) render(); };
+    const after = () => { if (window.speechSynthesis) speechSynthesis.cancel(); if (S.phase === 1){ render(); const b = panel.querySelector(`[data-spot="${id}"]`); b && b.focus(); } };
+    const close = () => { if (d.close && d.open){ d.close(); } else { d.removeAttribute("open"); after(); } };
+    $("#dlgClose").onclick = close; d.onclose = after;
     if (d.showModal) d.showModal(); else d.setAttribute("open", "");
     $("#dlgClose").focus();
   }
@@ -309,7 +312,7 @@ function startApp(USER){
     const nv = $("#nextV"); if (nv) nv.onclick = () => { S.vi++; save(); render(); };
     const cp = $("#copy"); if (cp) cp.onclick = () => { const msg = $("#copied"), fallback = () => { const ta = $("#resultTxt"); ta.focus(); ta.select(); msg.textContent = "Text seleccionat. Copia'l amb Ctrl+C."; };
       try { navigator.clipboard.writeText(resultText()).then(() => { msg.textContent = "Copiat."; }, fallback); } catch(e){ fallback(); } };
-    const rs = $("#restart"); if (rs) rs.onclick = () => { if (rs.dataset.armed){ S = fresh(); save(); W.resetAll(); render(); return; } rs.dataset.armed = "1"; rs.textContent = "Sí, esborra-ho tot"; $("#rsMsg").textContent = "Es perdrà la puntuació. Torna a prémer per confirmar."; };
+    const rs = $("#restart"); if (rs) rs.onclick = () => { if (rs.dataset.armed){ S = fresh(); save(); if (window.speechSynthesis) speechSynthesis.cancel(); W.resetAll(); shownPhase = -1; setView("vall"); W.resetCam(); render(); scrollTo({top:0}); return; } rs.dataset.armed = "1"; rs.textContent = "Sí, esborra-ho tot"; $("#rsMsg").textContent = "Es perdrà la puntuació. Torna a prémer per confirmar."; };
   }
   function focusFb(key, kind){ const sel = kind === "ef" ? `[data-ef^="${key.split(":")[0]}:"]` : `[data-q^="${key.split(":").slice(0,2).join(":")}:"]`; const b = panel.querySelector(sel); const fb = b && b.closest(".q") && b.closest(".q").querySelector(".fb"); if (fb){ fb.setAttribute("tabindex","-1"); fb.focus({preventScroll:false}); } }
 
@@ -348,7 +351,8 @@ function initA11y(){
   const btn = $("#a11yBtn"), box = $("#a11y");
   if (!btn) return;
   const sync = () => { box.querySelectorAll("input").forEach(i => { i.checked = prefs[i.name] === i.value; }); };
-  btn.onclick = () => { box.hidden = !box.hidden; btn.setAttribute("aria-expanded", !box.hidden); if (!box.hidden){ sync(); box.querySelector("input:checked").focus(); } };
+  btn.onclick = () => { box.hidden = !box.hidden; btn.setAttribute("aria-expanded", !box.hidden); if (!box.hidden){ sync(); const c = box.querySelector("input:checked") || box.querySelector("input"); c && c.focus(); } };
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !box.hidden){ box.hidden = true; btn.setAttribute("aria-expanded", "false"); btn.focus(); } });
   box.addEventListener("change", e => { if (e.target.name){ prefs[e.target.name] = e.target.value; applyPrefs(); } });
   $("#a11yClose").onclick = () => { box.hidden = true; btn.setAttribute("aria-expanded", "false"); btn.focus(); };
   applyPrefs();
